@@ -115,7 +115,7 @@ def resample2HighRes( headerFileList, inputPathList, outputPathList, maskPath, r
             resolutionSTR = '%0.2f,%0.2f,%0.2f' %(resolution, resolution, resolution)
             newDWIfiles.append( ff[:-9] + '_isores%dmm_' %(resolution*10) + ff[-9:] )
 
-            if not os.path.exists( outputPath +  newName ):
+            if not os.path.exists( outputPath +  newDWIfiles[-1] ):
                 out = call(['crlResampler2', '--voxelsize', resolutionSTR, '-i', inputPath + ff, '-o' , outputPath +  newDWIfiles[-1], '--interp linear', '-p', str(nThreads)])
 
          
