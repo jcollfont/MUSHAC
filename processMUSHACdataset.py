@@ -120,7 +120,7 @@ def resample2HighRes( headerFileList, inputPathList, outputPathList, maskPath, r
 
          
         # extract new size from an example file
-        fr = open( outputPath + dwiFiles[0])
+        fr = open( outputPath + newDWIfiles[0])
         rlines = fr.readlines()
         fr.close()
         refSize = [ ll for ll in rlines if 'sizes:' in ll ][0][:-1]
