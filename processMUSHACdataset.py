@@ -218,11 +218,11 @@ if __name__ == '__main__':
 
             print 'Resampling data to %0.1fmm' %(resol)
             ref15ResolutionFolder = [ refInputFolder + 'dwi_iso%dmm/' %(resol*10) for ii in range(len(dataFilesList)) ]
-            dataNHDRupsample, mask15mm = resample2HighRes( dataFilesList[:], refInputFolderList[:], ref15ResolutionFolder[:], mask, resol ,nThreads=int(args.threads))
+            dataNHDRupsample, maskupsample = resample2HighRes( dataFilesList[:], refInputFolderList[:], ref15ResolutionFolder[:], mask, resol ,nThreads=int(args.threads))
         
             print 'Running DIAMOND on data at resolution %0.1fmm' %(resol)
             diamondFilesList = [ refInputFolder + 'DIAMOND_iso%dmm/' %(resol*10) + dd[:-9] + '_iso%dmm_DIAMOND3T.nrrd' %(resol*10) for dd in dataNHDRupsample ]
-            runDIAMOND( dataNHDRupsample[:], ref15ResolutionFolder[:], mask15mm[0], diamondFilesList[:],  args.threads )
+            runDIAMOND( dataNHDRupsample[:], ref15ResolutionFolder[:], maskupsample, diamondFilesList[:],  args.threads )
 
 
         # ------------------ DIAMOND model  ----------------------- # 
