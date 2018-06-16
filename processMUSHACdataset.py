@@ -50,15 +50,15 @@ def runDIAMOND( dataNHDRList, inputFolderList, mask, outputNameList, numThreads=
             functionName = '/home/ch199899/bins/crlDCIEstimate_March2018_XeonPhi'
 
         # run DIAMOND
-        print outputName[:-5] + '_t0.nrrd'
         if not os.path.exists( outputName[:-5] + '_t0.nrrd' ):
+            print 'Computing ' + outputName[:-5] + '_t0.nrrd'
             try:
                 out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
                             '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu', '--fascicle diamondcyl'] )
             except :
                 print 'Could not run DIAMOND on ' + dataNHDR
         else:
-            print outputName  + ' already computed'
+            print outputName[:-5] + '_t0.nrrd'  + ' already computed'
 
 
 def readInBvecsAndBvals( inputFolder, bvecsFile='dwi.bvec', bvalsFile='dwi.bval' ):
@@ -197,7 +197,7 @@ if __name__ == '__main__':
 
 
         # ------------------ DENOISE DATA ----------------------- #
-        runDenoising( refInputFolder + 'dwi/' + dataNHDR,  refInputFolder + 'dwi/' + dataDenoisedNHDR )
+        runDenoising( [refInputFolder + 'dwi/' + dataNHDR],  [refInputFolder + 'dwi/' + dataDenoisedNHDR] )
 
         
         # ------------------ RUNN DIAMOND DATA ----------------------- #
@@ -218,7 +218,7 @@ if __name__ == '__main__':
         for resol in [1.5, 1.2]:
 
             print 'Resampling data to %0.1fmm' %(resol)
-            ref15ResolutionFolder = [ refInputFolder + 'dwi_iso%dmm/' %(resol*10) for ii in range(len(dataFilesList))]
+            ref15ResolutionFolder = [ refInputFolder + 'dwi_iso%dmm/' %(resol*10) for ii in range(len(dataFilesList)) ]
             dataNHDRupsample, mask15mm = resample2HighRes( dataFilesList, refInputFolderList, ref15ResolutionFolder, mask, resol ,nThreads=int(args.threads))
         
             print 'Running DIAMOND on data at resolution %0.1fmm' %(resol)
