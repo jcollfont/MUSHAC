@@ -104,7 +104,7 @@ def resample2HighRes( headerFileList, inputPathList, outputPathList, maskPath, r
         for ll in lines:
             if 'data file: LIST' in ll:
                 readFiles = True
-            if readFiles:
+            if  :
                 dwiFiles.append( ll )
 
         # resample files
@@ -113,13 +113,12 @@ def resample2HighRes( headerFileList, inputPathList, outputPathList, maskPath, r
 
             # update resolution of individual nrrds
             resolutionSTR = '%0.2f,%0.2f,%0.2f' %(resolution, resolution, resolution)
-            newName = ff[:-9] + '_isores%dmm_' %(resolution*10) + ff[-9:]  
+            newDWIfiles.append( ff[:-9] + '_isores%dmm_' %(resolution*10) + ff[-9:] )
 
             if not os.path.exists( outputPath +  newName ):
-                out = call(['crlResampler2', '--voxelsize', resolutionSTR, '-i', inputPath + ff, '-o' , outputPath +  outName, '--interp linear', '-p', str(nThreads)])
+                out = call(['crlResampler2', '--voxelsize', resolutionSTR, '-i', inputPath + ff, '-o' , outputPath +  newDWIfiles[-1], '--interp linear', '-p', str(nThreads)])
 
-            newDWIfiles.append( newName )
-
+         
         # extract new size from an example file
         fr = open( outputPath + dwiFiles[0])
         rlines = fr.readlines()
