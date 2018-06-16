@@ -104,7 +104,7 @@ def resample2HighRes( headerFileList, inputPathList, outputPathList, maskPath, r
         for ll in lines:
             if 'data file: LIST' in ll:
                 readFiles = True
-            if  :
+            if  readFiles:
                 dwiFiles.append( ll )
 
         # resample files
