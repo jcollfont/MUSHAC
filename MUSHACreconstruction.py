@@ -3,9 +3,20 @@
 import numpy as np 
 import nrrd
 import os
+import shutil
+from subprocess import call
+import sys
 
 # DIPY
 from dipy.core.gradients import gradient_table
+
+# local
+sys.path.insert(0, '/home/ch199899/Documents/Research/DWI/MFMestimation/python/')
+from loadDWIdata import saveNRRDwithHeader
+
+
+# GLOBAL
+refHeader = '/fileserver/projects6/jcollfont/refHeader.nhdr'
 
 class MUSHACreconstruction():
 
@@ -124,3 +135,32 @@ class MUSHACreconstruction():
         
 
         return signal.reshape( self.imgSize + (numGrad,) )
+
+
+    #%% 
+    def computeParamsFromSingleTensorFromDWI(self, bvecs=[], bvals=[], recSignal=np.zeros([0]), recNHDR=''):
+
+        # tempSave new signal
+        tmpdir = '/tmp/tmp%d'  %(np.random.randint(1e6))
+        try:
+            os.makedirs(tmpdir)
+        except:
+            print tmpdir + ' already exists'
+        if recNHDR== '':
+            saveNRRDwithHeader( recSignal, refHeader, tmpdir, '/recDWI' , bvals, bvecs )
+            recNHDR = tmpdir+'/recDWI.nhdr'
+
+        # compute single tensor on data
+        call(['tend', 'estim', '-i', recNHDR, '-o', tmpdir + '/recDTI.nrrd' ,  '-B', 'kvp', '-knownB0', 'false'  ])
+
+        # compute FA, MD
+        call(['crlTensorScalarParameter', '-m',  tmpdir + '/meanDiff.nrrd', '-f',  tmpdir + '/fracAnis.nrrd', tmpdir + '/recDTI.nrrd'])
+
+        # load results
+        meanDiff = nrrd.read( tmpdir + '/meanDiff.nrrd' )[0]
+        fracAnisotropy = nrrd.read( tmpdir + '/fracAnis.nrrd' )[0]
+
+        shutil.rmtree(tmpdir)
+
+
+        return meanDiff, fracAnisotropy
