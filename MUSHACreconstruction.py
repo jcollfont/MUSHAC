@@ -9,10 +9,12 @@ import sys
 
 # DIPY
 from dipy.core.gradients import gradient_table
+import dipy.reconst.dki as dki
+from dipy.reconst.dsi import DiffusionSpectrumModel
 
 # local
 sys.path.insert(0, '/home/ch199899/Documents/Research/DWI/MFMestimation/python/')
-from loadDWIdata import saveNRRDwithHeader
+from loadDWIdata import saveNRRDwithHeader, loadDWIdata
 
 
 # GLOBAL
@@ -53,6 +55,7 @@ class MUSHACreconstruction():
         print 'From path %s load:' %(self.paths['diamond'])
 
         # get MOSE mask
+        print files
         self.loadedFiles['mose'] = self.paths['diamond'] + [ff for ff in files if ('_mosemap.nrrd' in ff)&( refName in ff )&( 'mtm' not in ff )][0]
         self.diamondMose = nrrd.read( self.loadedFiles['mose'] )[0]
         self.numTensors = np.max(self.diamondMose.ravel())
@@ -75,7 +78,7 @@ class MUSHACreconstruction():
         # get fractions
         self.loadedFiles['fractions'] = self.paths['diamond'] + [ff for ff in files if ('_fractions.nrrd' in ff)&( refName in ff )&( 'mtm' not in ff )][0]
         self.diamondFractions = nrrd.read( self.loadedFiles['fractions'] )[0]
-        self.diamondFractions = self.diamondFractions.reshape(self.numTensors+1, np.prod(self.imgSize)).T[self.anatMask,:]
+        self.diamondFractions = self.diamondFractions[:self.numTensors+1,:,:,:].reshape(self.numTensors+1, np.prod(self.imgSize)).T[self.anatMask,:]
         print '\t-%s' %(self.loadedFiles['fractions'])
 
         # get B0
@@ -138,10 +141,16 @@ class MUSHACreconstruction():
 
 
     #%% 
-    def computeParamsFromSingleTensorFromDWI(self, bvecs=[], bvals=[], recSignal=np.zeros([0]), recNHDR=''):
+    def computeParamsFromSingleTensorFromDWI(self, bvecs=[], bvals=[], recSignal=np.zeros([0]), recNHDR='', outputName=None, anatMask=None):
 
         # tempSave new signal
-        tmpdir = '/tmp/tmp%d'  %(np.random.randint(1e6))
+        if outputName == None:
+            tmpdir = '/tmp/tmp%d'  %(np.random.randint(1e6))
+            baseName = ''
+        else:
+            tmpdir = os.path.dirname(outputName)
+            baseName = os.path.basename(outputName)
+
         try:
             os.makedirs(tmpdir)
         except:
@@ -151,16 +160,45 @@ class MUSHACreconstruction():
             recNHDR = tmpdir+'/recDWI.nhdr'
 
         # compute single tensor on data
-        call(['tend', 'estim', '-i', recNHDR, '-o', tmpdir + '/recDTI.nrrd' ,  '-B', 'kvp', '-knownB0', 'false'  ])
+        if not os.path.exists(tmpdir + '/recDTI.nrrd'):
+            call(['tend', 'estim', '-i', recNHDR, '-o', tmpdir + '/recDTI.nrrd' ,  '-B', 'kvp', '-knownB0', 'false'  ])
 
         # compute FA, MD
-        call(['crlTensorScalarParameter', '-m',  tmpdir + '/meanDiff.nrrd', '-f',  tmpdir + '/fracAnis.nrrd', tmpdir + '/recDTI.nrrd'])
+        if not os.path.exists(tmpdir +'/'+ baseName + '_fracAnis.nrrd'):
+            call(['crlTensorScalarParameter', '-m',  tmpdir +'/'+ baseName + '_meanDiff.nrrd', '-f',  tmpdir +'/'+ baseName + '_fracAnis.nrrd', tmpdir + '/recDTI.nrrd'])
 
         # load results
-        meanDiff = nrrd.read( tmpdir + '/meanDiff.nrrd' )[0]
-        fracAnisotropy = nrrd.read( tmpdir + '/fracAnis.nrrd' )[0]
-
-        shutil.rmtree(tmpdir)
+        meanDiff = nrrd.read( tmpdir +'/'+  baseName + '_meanDiff.nrrd' )[0]
+        fracAnisotropy = nrrd.read( tmpdir +'/'+ baseName + '_fracAnis.nrrd' )[0]
 
 
-        return meanDiff, fracAnisotropy
+        # load DWI data
+        dwiData = loadDWIdata( os.path.dirname(recNHDR) + '/', os.path.basename(recNHDR) )[0]
+
+        if not anatMask == None:
+            mask = nrrd.read(anatMask)[0]
+            dwiData = dwiData* np.tile( mask , [dwiData.shape[-1],1,1,1]).transpose(1,2,3,0)
+
+        # compute Mean Kurtosis (MK)
+        if not os.path.exists(tmpdir +'/'+ baseName + '_meanKurtosis.nrrd'):
+            dkiModel = dki.DiffusionKurtosisModel(self.gtab)
+            dkifit = dkiModel.fit(dwiData)
+            meanKurtosis = dkifit.mk()
+            nrrd.write( tmpdir +'/'+ baseName + '_meanKurtosis.nrrd', meanKurtosis )
+        else:
+            meanKurtosis = nrrd.read( tmpdir +'/'+ baseName + '_meanKurtosis.nrrd')[0]
+
+        # Compute Return to Origin Probability (RTOP)
+        if not os.path.exists(tmpdir +'/'+ baseName + '_rtop.nrrd'):
+            dsmodel = DiffusionSpectrumModel( self.gtab )
+            rtop = dsmodel.fit(  dwiData / np.mean( dwiData[:,:,:, self.gtab.b0s_mask ] ,axis=3, keepdims=True)  ).rtop_pdf()
+            nrrd.write( tmpdir +'/'+ baseName + '_rtop.nrrd', rtop )
+        else:
+            rtop = nrrd.read( tmpdir +'/'+ baseName + '_rtop.nrrd')[0]
+
+
+        if outputName == None:
+            shutil.rmtree(tmpdir)
+
+
+        return meanDiff, fracAnisotropy, meanKurtosis, rtop

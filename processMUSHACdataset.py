@@ -14,7 +14,7 @@ from dipy.core.gradients import gradient_table
 # local
 from MUSHACreconstruction import MUSHACreconstruction
 sys.path.insert(0, '/home/ch199899/Documents/Research/DWI/MFMestimation/python/')
-from loadDWIdata import saveNRRDwithHeader, getListofDWIFiles
+from loadDWIdata import saveNRRDwithHeader, getListofDWIFiles, loadDWIdata
 
 # GLOBAL
 refHeader = '/fileserver/projects6/jcollfont/refHeader.nhdr'
@@ -176,6 +176,8 @@ def registerDWI( newDWINHDR, refDWINHDR, outputTransform ):
     newDWI = getListofDWIFiles( newDWINHDR )
     regTarget = os.path.dirname(newDWINHDR) + '/' + newDWI[0]
     regRef = os.path.dirname(refDWINHDR) + '/' + getListofDWIFiles( refDWINHDR )[0]
+
+    regSTR = os.path.basename(outputTransform)
     
     # compute registration transform from first dwi images (hopefully B0)
     if not os.path.exists( outputTransform + '_FinalS.tfm' ):
@@ -189,9 +191,10 @@ def registerDWI( newDWINHDR, refDWINHDR, outputTransform ):
     regFiles = []
     for fi in newDWI:
         regTarget = os.path.dirname(newDWINHDR) + '/' + fi
-        call(['crlBlockMatchingRegistration', '-r', regRef, '-f',  regTarget, '-o',  regTarget[:-5] + '_registered', \
-                                        '-i', outputTransform + '_FinalS.tfm', '-N', '-n 0', '-e 0', '-s 0' ,'-p 1', '-t affine'])
-        regFiles.append( regTarget[:-5] + '_registered_FinalS.nrrd\n' )
+        if not os.path.exists( regTarget[:-5] + '_registered_'+ regSTR + '_FinalS.nrrd' ):
+            call(['crlBlockMatchingRegistration', '-r', regRef, '-f',  regTarget, '-o',  regTarget[:-5] + '_registered_'+ regSTR , \
+                                            '-i', outputTransform + '_FinalS.tfm', '-N', '-n 0', '-e 0', '-s 0' ,'-p 1', '-t affine'])
+        regFiles.append( os.path.basename( regTarget[:-5] ) + '_registered_'+ regSTR + '_FinalS.nrrd\n' )
 
     fi = open(refDWINHDR)
     lines = fi.readlines()
@@ -200,15 +203,26 @@ def registerDWI( newDWINHDR, refDWINHDR, outputTransform ):
     newLines = lines[:-len(regFiles)]
     newLines += regFiles
 
-    fi = open(newDWINHDR[:-5] + '_registered.nhdr', 'w+')
+    fi = open(newDWINHDR[:-5] + '_registered_'+ regSTR +'.nhdr', 'w+')
     fi.writelines(newLines)
     fi.close()
 
-    return newDWINHDR[:-5] + '_registered.nhdr'
+    return newDWINHDR[:-5] + '_registered_'+ regSTR +'.nhdr'
 
 
+def computeResidualDWI( recDWINHDR, newDWINHDR, anatMask ):
 
 
+    dwiRec, bvaluesRec, = loadDWIdata( os.path.dirname(recDWINHDR)+ '/', os.path.basename(recDWINHDR) )
+    dwiRec = dwiRec / np.mean( dwiRec[:,:,:, bvaluesRec < 10], axis=3 ,keepdims=True )
+
+    dwiNew, bvaluesNew, = loadDWIdata( os.path.dirname(newDWINHDR)+ '/', os.path.basename(newDWINHDR) )
+    dwiNew = dwiNew / np.mean( dwiNew[:,:,:, bvaluesNew < 10], axis=3 ,keepdims=True )
+
+    residuals = dwiRec - dwiNew
+    residuals = residuals * np.tile(anatMask,[residuals.shape[-1],1,1,1]).transpose(1,2,3,0)
+
+    return residuals
 
 
 # ------------------ MAIN ----------------------- #
@@ -228,6 +242,8 @@ if __name__ == '__main__':
                         help='resolution for refrence ID')
     parser.add_argument('-p', '--threads', default='50',
                         help='number of threads')
+    parser.add_argument('--report', '--report', default=None,
+                        help='File where to write the report')
     args = parser.parse_args()
 
     if args.subj == 'all': 
@@ -244,12 +260,12 @@ if __name__ == '__main__':
     resultsReport = ''
 
     # set temp folder
-    tmpdir = '/tmp/tmp%d'  %(np.random.randint(1e6))
-    try:
-        os.makedirs(tmpdir)
-    except:
-        print tmpdir + ' already exists'
-    print 'temp save at: ' + tmpdir
+    # tmpdir = '/tmp/tmp%d'  %(np.random.randint(1e6))
+    # try:
+    #     os.makedirs(tmpdir)
+    # except:
+    #     print tmpdir + ' already exists'
+    # print 'temp save at: ' + tmpdir
 
     # for all subjects
     for subj in subjects:
@@ -299,87 +315,131 @@ if __name__ == '__main__':
             runDIAMOND( dataNHDRupsample[:], ref15ResolutionFolder[:], maskupsample, diamondFilesList[:],  args.threads )
 
 
-        # ------------------ DIAMOND model  ----------------------- # 
-        print 'Preparing DIAMOND model for extrapolation'
-        diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND/','dwi/' + dataNHDR, maskPath='mask.nrrd')
+        for denoise in [0,1]:
 
-
-        # # ------------------ BASELINE for RESULTS ----------------------- # 
-        # bvals, bvecs = readInBvecsAndBvals( refInputFolder )                                           # define gradients from target file
-        # diamondReconstruction = diamondModel.generateDWIdata( bvecs, bvals )                        # generate new data
-        # saveNRRDwithHeader( diamondReconstruction, refHeader, tmpdir + '/', 'recDWI' , bvals, bvecs )    # save
-        # refMD, refFA = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=tmpdir + '/recDWI.nhdr' )
-        # origMD, origFA = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=diamondModel.paths['dwi'] )
-
-        # mask = nrrd.read(refInputFolder + 'mask.nrrd')[0]
-        # maskIX = np.where(mask.ravel())[0]
-
-        # errMD = refMD.ravel()[maskIX] - origMD.ravel()[maskIX]
-        # errFA = refFA.ravel()[maskIX] - origFA.ravel()[maskIX]
-
-        # newLine = 'Baseline Mean Diffusivity error: %0.6f+/-%0.6f' %( np.mean(errMD.ravel()), np.std(errMD.ravel()) )
-        # resultsReport += newLine
-        # print newLine
-        # newLine = 'Baseline Fractional Anisotopy error: %0.6f+/-%0.6f' %( np.mean(errFA.ravel()), np.std(errFA.ravel()) )
-        # resultsReport += newLine
-        # print newLine
-
-        # ------------------ COMPARISON WITH OTHER MODELS ----------------------- #
-        for seq in sequences:
-            
-            for res in ['sa','st']:
-
-                # # set paths
-                inputFolder = args.dir + subj + '/' + seq + '/' + res + '/' 
-                newDWI = subj + '_' + seq + '_' + res + '_dwi.nhdr' 
-
-                print 'Running: ' + newDWI
-
-                # ------------------ register DWI from DIAMOND model to new data ----------------------- # 
-                print '\t-generating reconstructed signal...'
-                bvals, bvecs = readInBvecsAndBvals( inputFolder )                                           # define gradients from target file
-                diamondReconstruction = diamondModel.generateDWIdata( bvecs, bvals )                        # generate new data
-                saveNRRDwithHeader( diamondReconstruction, refHeader, tmpdir + '/', 'recDWI' , bvals, bvecs )    # save
-                
-                # register reconstructed DWI to new image
-                # print '\t-computing registration transform...'
-                regTarget =  inputFolder + 'dwi/' + newDWI
-                recDWINHDR =  tmpdir + '/'+ 'recDWI.nhdr'
-                outputTransform = inputFolder + '/' + subj + '_' + args.seq_ref + '_' + args.res_ref + '_2_ ' + subj + '_' + seq + '_' + res
-                # call(['crlBlockMatchingRegistration', '-r', regTarget, '-f',  regRef, '-o', tmpdir + '/transform', \
-                #                                     '-s 4', '-e 0', '-k 0.8', '--sig 2.5', '--mv 0.0', '-n 10', \
-                #                                     '--bh 20', '--blv 2', '--rs 1', '--ssi cc', '-I linear', '-p 50', '-t affine'])
-                
-                print '\t-registering DWI files...'
-                regNHDR = registerDWI(  recDWINHDR, regTarget, outputTransform )
-                # call(['crlResampler2', '-i', diamondModel.paths['dwi'], '-o', tmpdir + '/' + 'dwi_reg.nhdr', \
-                #                     '--interp', 'sinc' , '-g', regTarget, '-t', tmpdir + '/transform_finalS.tfm' , '-p', '50'])
-
-
-                # ------------------ get FA and MD from DIAMOND model  ----------------------- # 
-                print '\t-computing MD and FA on registered + reconstructed DWI signal'
-                refMD, refFA = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=regNHDR )
-
-                # ------------------ get FA and MD from new data model  ----------------------- #
-                print '\t-computing MD and FA on new DWI signal'
-                newMD, newFA = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=inputFolder + 'dwi/' + newDWI )
-
-                # ------------------ compare FA and MD  ----------------------- #
-                mask = nrrd.read(inputFolder + 'mask.nrrd')[0].ravel()
-                mask[ ( np.isnan(newFA.ravel()) ) | ( np.isnan(refFA.ravel()))] = 0
-                maskIX = np.where(mask.ravel())[0]
-
-                maskIX = maskIX 
-
-                errMD = refMD.ravel()[maskIX] - newMD.ravel()[maskIX]
-                errFA = refFA.ravel()[maskIX] - newFA.ravel()[maskIX]
-
-                newLine = '\tMean Diffusivity error: %0.6f+/-%0.6f\n' %( np.mean(errMD.ravel())/np.mean(refMD.ravel()[maskIX]), np.std(errMD.ravel())/np.mean(refMD.ravel()[maskIX]) )
-                resultsReport += newLine
+            if denoise == 0:
+                newLine = '\tOriginal DWI\n'
+                resultsReport +=newLine
                 print newLine
-                newLine = '\tFractional Anisotopy error: %0.6f+/-%0.6f\n' %( np.mean(errFA.ravel()) / np.mean(refFA.ravel()[maskIX]) , np.std(errFA.ravel()) / np.mean(refFA.ravel()[maskIX])  )
-                resultsReport += newLine
+                # ------------------ DIAMOND model  ----------------------- # 
+                print 'Preparing DIAMOND model for extrapolation'
+                diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND/','dwi/' + dataNHDR, maskPath='mask.nrrd')
+            elif denoise == 1:
+                newLine = '\tDenoised DWI\n'
+                resultsReport +=newLine
                 print newLine
+                # ------------------ DIAMOND model  ----------------------- # 
+                print 'Preparing DIAMOND model for extrapolation'
+                diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND/','dwi/' + dataDenoisedNHDR, maskPath='mask.nrrd')
+
+
+            # # ------------------ BASELINE for RESULTS ----------------------- # 
+            # bvals, bvecs = readInBvecsAndBvals( refInputFolder )                                           # define gradients from target file
+            # diamondReconstruction = diamondModel.generateDWIdata( bvecs, bvals )                        # generate new data
+            # saveNRRDwithHeader( diamondReconstruction, refHeader, tmpdir + '/', 'recDWI' , bvals, bvecs )    # save
+            # refMD, refFA = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=tmpdir + '/recDWI.nhdr' )
+            # origMD, origFA = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=diamondModel.paths['dwi'] )
+
+            # mask = nrrd.read(refInputFolder + 'mask.nrrd')[0]
+            # maskIX = np.where(mask.ravel())[0]
+
+            # errMD = refMD.ravel()[maskIX] - origMD.ravel()[maskIX]
+            # errFA = refFA.ravel()[maskIX] - origFA.ravel()[maskIX]
+
+            # newLine = 'Baseline Mean Diffusivity error: %0.6f+/-%0.6f' %( np.mean(errMD.ravel()), np.std(errMD.ravel()) )
+            # resultsReport += newLine
+            # print newLine
+            # newLine = 'Baseline Fractional Anisotopy error: %0.6f+/-%0.6f' %( np.mean(errFA.ravel()), np.std(errFA.ravel()) )
+            # resultsReport += newLine
+            # print newLine
+
+            # ------------------ COMPARISON WITH OTHER MODELS ----------------------- #
+            for seq in sequences:
+                
+                for res in ['sa','st']:
+                        
+                    # # set paths
+                    inputFolder = args.dir + subj + '/' + seq + '/' + res + '/' 
+                    newDWI = subj + '_' + seq + '_' + res + '_dwi.nhdr' 
+                    print 'Running: ' + newDWI
+
+                    try:
+                        os.makedirs(inputFolder + 'reconstructed/')
+                    except:
+                        print inputFolder + 'reconstructed/' + ' already exists'
+                    
+                    recHDR = 'recDWI_' + subj + '_' + args.seq_ref + '_' + args.res_ref
+
+                    # load mask
+                    mask = nrrd.read(inputFolder + 'mask.nrrd')[0].ravel()
+
+                    # ------------------ register DWI from DIAMOND model to new data ----------------------- # 
+                    print '\t-generating reconstructed signal...'
+                    bvals, bvecs = readInBvecsAndBvals( inputFolder )                                           # define gradients from target file
+                    diamondReconstruction = diamondModel.generateDWIdata( bvecs, bvals )                        # generate new data
+                    saveNRRDwithHeader( diamondReconstruction, refHeader, inputFolder + 'reconstructed/', recHDR , bvals, bvecs )    # save
+                    
+                    # register reconstructed DWI to new image
+                    # print '\t-computing registration transform...'
+                    regTarget =  inputFolder + 'dwi/' + newDWI
+                    recDWINHDR = inputFolder + 'reconstructed/'+ recHDR + '.nhdr'
+                    outputTransform = inputFolder + '/' + subj + '_' + args.seq_ref + '_' + args.res_ref + '_2_' + subj + '_' + seq + '_' + res
+                    # call(['crlBlockMatchingRegistration', '-r', regTarget, '-f',  regRef, '-o', tmpdir + '/transform', \
+                    #                                     '-s 4', '-e 0', '-k 0.8', '--sig 2.5', '--mv 0.0', '-n 10', \
+                    #                                     '--bh 20', '--blv 2', '--rs 1', '--ssi cc', '-I linear', '-p 50', '-t affine'])
+                    
+                    print '\t-registering DWI files...'
+                    regNHDR = registerDWI(  recDWINHDR, regTarget, outputTransform )
+                    # call(['crlResampler2', '-i', diamondModel.paths['dwi'], '-o', tmpdir + '/' + 'dwi_reg.nhdr', \
+                    #                     '--interp', 'sinc' , '-g', regTarget, '-t', tmpdir + '/transform_finalS.tfm' , '-p', '50'])
+
+
+                    print '\t-computing DWI residual...'
+                    residual = computeResidualDWI( regNHDR, inputFolder + 'dwi/' + newDWI , mask )
+                    saveNRRDwithHeader( residual, refHeader, os.path.dirname(regNHDR), os.path.basename(regNHDR)[:-5] + '_residuals' , bvals, bvecs )    # save
+
+                    # ------------------ get FA and MD from DIAMOND model  ----------------------- # 
+                    print '\t-computing MD and FA on registered + reconstructed DWI signal'
+                    refMD, refFA, refMK, refRTOP = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=regNHDR, outputName=regNHDR[:-5] )
+
+                    # ------------------ get FA and MD from new data model  ----------------------- #
+                    print '\t-computing MD and FA on new DWI signal'
+                    newMD, newFA, newMK, newRTOP = diamondModel.computeParamsFromSingleTensorFromDWI( recNHDR=inputFolder + 'dwi/' + newDWI , outputName=inputFolder + 'dwi/' + newDWI[:-5])
+
+                    # ------------------ compare FA and MD  ----------------------- #
+                    mask[ ( np.isnan(newFA.ravel()) ) | ( np.isnan(refFA.ravel()))] = 0
+                    maskIX = np.where(mask.ravel())[0]
+
+                    errMD = refMD.ravel()[maskIX] - newMD.ravel()[maskIX]
+                    errFA = refFA.ravel()[maskIX] - newFA.ravel()[maskIX]
+                    notnanIX = np.where(np.isnan(errFA) == False )[0]
+                    errFA = errFA[notnanIX]
+                    errMK = refMK.ravel()[maskIX] - newMK.ravel()[maskIX]
+                    errRTOP = refRTOP.ravel()[maskIX] - newRTOP.ravel()[maskIX]
+                    
+
+                    newLine = '\tMean Diffusivity error: %0.6f+/-%0.6f\n' %( np.mean(errMD.ravel())/np.mean(newMD.ravel()[maskIX]), \
+                                                                                np.std(errMD.ravel())/np.mean(refMD.ravel()[maskIX]) )
+                    resultsReport += newLine
+                    print newLine
+                    newLine = '\tFractional Anisotopy error: %0.6f+/-%0.6f\n' %( np.mean(np.abs(errFA.ravel())) / np.mean( newFA.ravel() ), \
+                                                                                    np.std( np.abs(errFA.ravel()))  / np.mean( newFA.ravel() ) )
+                    resultsReport += newLine
+                    print newLine
+                    newLine = '\tMean Kurtosis error: %0.6f+/-%0.6f\n' %( np.mean(np.abs(errMK.ravel())) / np.mean( newMK.ravel() ), \
+                                                                                    np.std( np.abs(errMK.ravel()))  / np.mean( newMK.ravel() ) )
+                    resultsReport += newLine
+                    print newLine
+                    newLine = '\tRTOP error: %0.6f+/-%0.6f\n' %( np.mean(np.abs(errRTOP.ravel())) / np.mean( newRTOP.ravel() ), \
+                                                                                    np.std( np.abs(errRTOP.ravel()))  / np.mean( newRTOP.ravel() ) )
+                    resultsReport += newLine
+                    print newLine
+
+    if not args.report == None:
+        frep = open(args.report,'w+')
+        frep.writelines(resultsReport)
+        frep.close()
 
     print resultsReport
-    shutil.rmtree(tmpdir)
+    # shutil.rmtree(tmpdir)
+    
