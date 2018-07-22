@@ -13,7 +13,7 @@ import dipy.reconst.dki as dki
 from dipy.reconst.dsi import DiffusionSpectrumModel
 
 # local
-sys.path.insert(0, '/home/ch199899/Documents/Research/DWI/MFMestimation/python/')
+sys.path.insert(0, os.path.expanduser("~") + '/Documents/Research/DWI/MFMestimation/python/')
 from loadDWIdata import saveNRRDwithHeader, loadDWIdata, dwiClass
 
 
