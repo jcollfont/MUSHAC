@@ -141,6 +141,61 @@ class MUSHACreconstruction():
 
 
     #%% 
+    #
+    #   This function computes the basic parameter estimates from the tensors in DIAMOND
+    #
+    def computeDIAMONDTensorParams(self, outputDir=''):
+
+        if outputDir == '':
+            outputDir = '/tmp/tmp%d'  %(np.random.randint(1e6))
+            try:
+                os.makedirs(outputDir)
+            except:
+                print outputDir + ' already exists'
+
+        # for all tensors
+        diffusionVec = []
+        sticks = []
+        meanDiffusivity = []
+        fractionalAnisotropy = []
+        radialDiffusivity = []
+        axialDiffusivity = []
+        for tt in range(self.numTensors):
+            
+            # compue sticks
+            call([ 'crlDCIToPeaks', '-i', self.loadedFiles['tensors'][tt], '-n 1', \
+                                        '-o',  outputDir + 'tensStick%d.nrrd'%(tt) ])
+
+            # compute params
+            call(['crlTensorScalarParameter', '-m', outputDir + 'tensMD%d.nrrd'%(tt), '-f', outputDir + 'tensFA%d.nrrd'%(tt), \
+                                '-1', outputDir + 'tensEIG0%d.nrrd'%(tt), '-2', outputDir + 'tensEIG3%d.nrrd'%(tt), '-3', outputDir + 'tensEIG2%d.nrrd'%(tt), \
+                                '-r', outputDir + 'tensRD%d.nrrd'%(tt),'-a', outputDir + 'tensAD%d.nrrd'%(tt), \
+                                self.loadedFiles['tensors'][tt] ])
+
+            # load diffusion
+            eig0 = nrrd.read( outputDir + 'tensEIG0%d.nrrd'%(tt) )[0]
+            eig1 = nrrd.read( outputDir + 'tensEIG1%d.nrrd'%(tt) )[0]
+            eig2 = nrrd.read( outputDir + 'tensEIG2%d.nrrd'%(tt) )[0]
+            diffusionVec.append( np.concatenate( [eig0, eig1, eig2], axis=-1) )
+            # load stick
+            sticks.append( nrrd.read(outputDir+ 'tensStick%d.nrrd'%(tt))[0] )
+            # load MD
+            meanDiffusivity.append(  nrrd.read(outputDir+ 'tensMD%d.nrrd'%(tt))[0]  ) 
+            #load FA
+            fractionalAnisotropy.append(  nrrd.read(outputDir+ 'tensFA%d.nrrd'%(tt))[0]  ) 
+            # load RD
+            radialDiffusivity.append(  nrrd.read(outputDir+ 'tensRD%d.nrrd'%(tt))[0]  ) 
+            # load AD
+            axialDiffusivity.append(  nrrd.read(outputDir+ 'tensAD%d.nrrd'%(tt))[0]  ) 
+
+        return sticks, diffusionVec, meanDiffusivity, fractionalAnisotropy, radialDiffusivity, axialDiffusivity
+
+        
+
+
+
+
+    #%% 
     def computeParamsFromSingleTensorFromDWI(self, bvecs=[], bvals=[], recSignal=np.zeros([0]), recNHDR='', outputName=None, anatMask=None):
 
         # tempSave new signal
