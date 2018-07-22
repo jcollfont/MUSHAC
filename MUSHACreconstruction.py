@@ -14,7 +14,7 @@ from dipy.reconst.dsi import DiffusionSpectrumModel
 
 # local
 sys.path.insert(0, '/home/ch199899/Documents/Research/DWI/MFMestimation/python/')
-from loadDWIdata import saveNRRDwithHeader, loadDWIdata
+from loadDWIdata import saveNRRDwithHeader, loadDWIdata, dwiClass
 
 
 # GLOBAL
@@ -22,7 +22,7 @@ refHeader = '/fileserver/projects6/jcollfont/refHeader.nhdr'
 
 class MUSHACreconstruction():
 
-    # ------------------ INSTANCES ----------------------- #
+    # ------------------ MEMBERS ----------------------- #
     # file paths
     paths = {'base':'', 'diamond':'','dwi':''}
     loadedFiles = {'mask':'', 'b0':'', 'mose':'', 'fractions':'', 'tensors':[]}
@@ -42,7 +42,14 @@ class MUSHACreconstruction():
     gtab = []
 
     # ------------------ METHODS ----------------------- #
-
+    #
+    #       - __init__                  -> constructor
+    #       - __setTensorMatrixfrom6D   -> create full tensor matrices from 6D vectors (upper triang)
+    #       - generateDWIdata           -> generate DWI data from DIAMOND model
+    #       - computeDIAMONDTensorParams -> compute scalar params from tensor model
+    #       - computeParamsFromSingleTensorFromDWI -> compute scalar params from tensor model (MUSHAC)
+    #
+    #
 
     #%% constructor
     def __init__(self, basePath='', path2Diamond='', path2DWI='', refName='', maskPath='', diamondFreeWaterDiff=3e-3):
@@ -111,7 +118,23 @@ class MUSHACreconstruction():
         self.diamondTensor[tt][:,2,1] = tens6D[:,4]
 
     #%% 
-    def generateDWIdata(self, bvecs, bvals):
+    #
+    #   This function generates new DWI data from the DIAMOND model
+    #
+    #   INPUTS:
+    #       - bvecs - <G,3>double - normalized gradient vectors
+    #       - bvals - <G,1>double - B-values that match gradient vetors
+    #       - outputPath - str - path where the new DWI data will be saved.
+    #                              (if '' is provided, the algorithm only returns the raw data)
+    #       
+    #
+    #   OUTPUT:
+    #       - reconstructedDWI - <imgSize,G> double - signal generated from the diamond model.
+    #                               (if outputPath == '')
+    #                           - dwiClass - dwi class object containing the signal generated 
+    #                                       from the diamond model. (if outputPath != '') 
+    #
+    def generateDWIdata(self, bvecs, bvals, outputPath=''):
 
         # set gradient table
         self.gtab = gradient_table(bvals, bvecs)
@@ -137,7 +160,16 @@ class MUSHACreconstruction():
             signal[self.anatMask,bb] = np.sum( self.diamondFractions * expData ,axis=1) * S0
         
 
-        return signal.reshape( self.imgSize + (numGrad,) )
+        if outputPath == '':
+            saveNRRDwithHeader( signal.reshape( self.imgSize + (numGrad,) ), refHeader, \
+                            os.path.dirname(self.paths['dwi']), os.path.basename(self.paths['dwi']), \
+                            bvals, bvecs )
+                            
+            reconstructedDWI = dwiClass( self.paths['dwi'], maskPath=self.loadedFiles['mask'], outputPath=outputPath)
+        else:
+            reconstructedDWI = signal.reshape( self.imgSize + (numGrad,) )
+        
+        return reconstructedDWI
 
 
     #%% 
@@ -191,6 +223,8 @@ class MUSHACreconstruction():
         return sticks, diffusionVec, meanDiffusivity, fractionalAnisotropy, radialDiffusivity, axialDiffusivity
 
         
+
+
 
 
 
