@@ -299,14 +299,20 @@ if __name__ == '__main__':
                                     for dd in dataNHDRupsample ]
             runDIAMOND( dataNHDRupsample[:], ref15ResolutionFolder[:], maskupsample, diamondFilesList[:],  args.threads )
 
-        for resol in [0, 1, 2]:
+        for resol in [1, 2]: #[0,1,2]:
 
             if resol == 0:
                 resolSTR = '_origRes'
+                folderResol = ''
+                nhdrResol = ''
             elif resol == 1:
                 resolSTR = '_iso12mmRes'
+                folderResol = '_iso12mm'
+                nhdrResol = '_isores12mm'
             elif resol ==2:
                 resolSTR = '_iso15mmRes'
+                folderResol = '_iso15mm'
+                nhdrResol = '_isores15mm'
 
 
             for denoise in [0,1]:
@@ -314,13 +320,19 @@ if __name__ == '__main__':
                 if denoise == 0:
                     # ------------------ DIAMOND model  ----------------------- # 
                     print 'Preparing DIAMOND model for extrapolation'
-                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND/','dwi/' + dataNHDR, maskPath='mask.nrrd')
+                    NHDR = dataNHDR[:-5] + nhdrResol + '.nhdr'
+                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND'+ folderResol + '/' ,\
+                                                        'dwi'+folderResol + '/' + NHDR, maskPath='mask'+nhdrResol+'.nrrd')
                     denoiseSTR = '_dwi'
+                    refHeader =  refInputFolder + 'dwi'+folderResol + '/' + NHDR
                 elif denoise == 1:
                     # ------------------ DIAMOND model  ----------------------- # 
                     print 'Preparing DIAMOND model for extrapolation'
-                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND/','dwi/' + dataDenoisedNHDR, maskPath='mask.nrrd')
+                    NHDR = dataNHDR[:-5] + nhdrResol + '.nhdr'
+                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND'+ folderResol + '/',\
+                                                        'dwi'+folderResol + '/' + NHDR, maskPath='mask'+nhdrResol+'.nrrd')
                     denoiseSTR = '_dwi_denoised'
+                    refHeader =  refInputFolder + 'dwi' +folderResol + '/' + NHDR
 
 
                 # ------------------ COMPARISON WITH OTHER MODELS ----------------------- #
@@ -340,28 +352,28 @@ if __name__ == '__main__':
                         try:
                             os.makedirs( outputFolder )
                         except:
-                            print 'Folder ' + outputFolder
+                            print '\t-Folder ' + outputFolder
                         
                         bvals, bvecs = readInBvecsAndBvals( inputFolder )                                           # define gradients from target file
                         
                         # ------------------ register DWI from DIAMOND model to new data ----------------------- # 
                         print '\t-generating reconstructed signal...'
-                        if not os.path.exists( outputFolder + recNHDR + '.nhdr' ):
-                            diamondReconstruction = diamondModel.generateDWIdata( bvecs, bvals )                        # generate new data
-                            saveNRRDwithHeader( diamondReconstruction, refHeader, outputFolder, recNHDR , bvals, bvecs )    # save
+                        # if not os.path.exists( outputFolder + recNHDR + '.nhdr' ):
+                        diamondReconstruction = diamondModel.generateDWIdata( bvecs, bvals )                        # generate new data
+                        saveNRRDwithHeader( diamondReconstruction, refHeader, outputFolder, recNHDR , bvals, bvecs )    # save
                         
                     
                         # ------------------ get FA and MD from DIAMOND model  ----------------------- # 
                         print '\t-computing MD and FA on from DIAMOND model'
-                        if not os.path.exists( outputFolder + recNHDR + 'tensStick0.nrrd' ):
-                            sticks, diffusionVec, meanDiffusivity, fractionalAnisotropy, radialDiffusivity, axialDiffusivity = \
-                                        diamondModel.computeDIAMONDTensorParams( outputDir=outputFolder, outputName=recNHDR )
+                        # if not os.path.exists( outputFolder + recNHDR + 'tensStick0.nrrd' ):
+                        sticks, diffusionVec, meanDiffusivity, fractionalAnisotropy, radialDiffusivity, axialDiffusivity = \
+                                    diamondModel.computeDIAMONDTensorParams( outputDir=outputFolder, outputName=recNHDR )
 
                         # ------------------ get FA and MD from DTI model  ----------------------- # 
                         print '\t-computing MD and FA from DTI model'
-                        if not os.path.exists( outputFolder + recNHDR + 'tensStick0.nrrd' ):
-                            diamondModel.computeParamsFromSingleTensorFromDWI( \
-                                                    bvecs=bvecs, bvals=bvals, recSignal=None, \
-                                                    recNHDR= outputFolder + recNHDR + '.nhdr', \
-                                                    outputName= outputFolder + recNHDR + '_DTI', \
-                                                    anatMask= refInputFolder + 'mask.nrrd')
+                        # if not os.path.exists( outputFolder + recNHDR + 'tensStick0.nrrd' ):
+                        diamondModel.computeParamsFromSingleTensorFromDWI( \
+                                                bvecs=bvecs, bvals=bvals, recSignal=None, \
+                                                recNHDR= outputFolder + recNHDR + '.nhdr', \
+                                                outputName= outputFolder + recNHDR + '_DTI', \
+                                                anatMask= refInputFolder + 'mask'+nhdrResol+'.nrrd')

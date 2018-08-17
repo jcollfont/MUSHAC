@@ -37,6 +37,11 @@ class MUSHACreconstruction():
     diamondB0 = np.zeros([0])
     diamondFreeWaterDiff = 0
 
+    # header info
+    space = ''
+    space_directions= ''
+    space_origin = ''
+
     # simulation
     dwiData = np.zeros([0])
     gtab = []
@@ -97,6 +102,9 @@ class MUSHACreconstruction():
         self.diamondB0 = nrrd.read( self.loadedFiles['b0'] )[0].ravel()[self.anatMask]
         print '\t-Bo: %s' %(self.loadedFiles['b0'])
 
+        # read header info from B0
+        self._readHeaderInfo( self.loadedFiles['b0'] )
+
         # get tensors
         self.diamondTensor = range(self.numTensors)
         tensorList = list()
@@ -111,10 +119,29 @@ class MUSHACreconstruction():
             print '\t-Tensor %d: %s' %(tt, tensorList[-1])
 
         self.loadedFiles['tensors'] = tensorList
-        print self.loadedFiles['tensors'] 
 
         # set water fraction
         self.diamondFreeWaterDiff = diamondFreeWaterDiff
+
+
+    #%% read header information from file header (usually B0)
+    def _readHeaderInfo(self, filePath):
+
+        # read file
+        dataFi = open( filePath,'r')
+        dataLines = dataFi.readlines()
+        dataFi.close()
+
+        # for all lines
+        for ll in dataLines:
+            # parse fields
+            if ll.find('space:') > -1:
+                self.space = ll.split(':')[-1]
+            elif ll.find('space directions:') > -1:
+                self.space_directions = ll.split(':')[-1]
+            elif ll.find('space origin:') > -1:
+                self.space_origin = ll.split(':')
+        
 
     #%% redo tensor shape
     def __setTensorMatrixfrom6D(self, tens6D, tt):
@@ -173,10 +200,11 @@ class MUSHACreconstruction():
             signal[self.anatMask,bb] = np.sum( self.diamondFractions * expData ,axis=1) * S0
         
 
+        signal = signal.reshape( self.imgSize + (numGrad,) )
         if outputPath == '':
-            reconstructedDWI = signal.reshape( self.imgSize + (numGrad,) )
+            reconstructedDWI = signal
         else:
-            saveNRRDwithHeader( signal.reshape( self.imgSize + (numGrad,) ), refHeader, \
+            saveNRRDwithHeader( signal, refHeader, \
                             outputPath, os.path.basename(self.paths['dwi'])[:-5], \
                             bvals, bvecs )
                             
@@ -268,12 +296,12 @@ class MUSHACreconstruction():
             recNHDR = tmpdir+'/recDWI.nhdr'
 
         # compute single tensor on data
-        if not os.path.exists(tmpdir + '/recDTI.nrrd'):
-            call(['tend', 'estim', '-i', recNHDR, '-o', tmpdir + '/' + baseName + '_recDTI.nrrd' ,  '-B', 'kvp', '-knownB0', 'false'  ])
+        # if not os.path.exists(tmpdir + '/' + baseName + '_recDTI.nrrd'):
+        call(['tend', 'estim', '-i', recNHDR, '-o', tmpdir + '/' + baseName + '_recDTI.nrrd' ,  '-B', 'kvp', '-knownB0', 'false'  ])
 
         # compute FA, MD
-        if not os.path.exists(tmpdir +'/'+ baseName + '_fracAnis.nrrd'):
-            call(['crlTensorScalarParameter', '-m',  tmpdir +'/'+ baseName + '_meanDiff.nrrd', '-f',  tmpdir +'/'+ baseName + '_fracAnis.nrrd', tmpdir + '/recDTI.nrrd'])
+        # if not os.path.exists(tmpdir +'/'+ baseName + '_fracAnis.nrrd'):
+        call(['crlTensorScalarParameter', '-m',  tmpdir +'/'+ baseName + '_meanDiff.nrrd', '-f',  tmpdir +'/'+ baseName + '_fracAnis.nrrd', tmpdir + '/' + baseName + '_recDTI.nrrd'])
 
         # load results
         meanDiff = nrrd.read( tmpdir +'/'+  baseName + '_meanDiff.nrrd' )[0]
@@ -288,13 +316,13 @@ class MUSHACreconstruction():
             dwiData = dwiData* np.tile( mask , [dwiData.shape[-1],1,1,1]).transpose(1,2,3,0)
 
         # compute Mean Kurtosis (MK)
-        if not os.path.exists(tmpdir +'/'+ baseName + '_meanKurtosis.nrrd'):
-            dkiModel = dki.DiffusionKurtosisModel(self.gtab)
-            dkifit = dkiModel.fit(dwiData)
-            meanKurtosis = dkifit.mk()
-            nrrd.write( tmpdir +'/'+ baseName + '_meanKurtosis.nrrd', meanKurtosis )
-        else:
-            meanKurtosis = nrrd.read( tmpdir +'/'+ baseName + '_meanKurtosis.nrrd')[0]
+        # if not os.path.exists(tmpdir +'/'+ baseName + '_meanKurtosis.nrrd'):
+        #     dkiModel = dki.DiffusionKurtosisModel(self.gtab)
+        #     dkifit = dkiModel.fit(dwiData)
+        #     meanKurtosis = dkifit.mk()
+        #     nrrd.write( tmpdir +'/'+ baseName + '_meanKurtosis.nrrd', meanKurtosis )
+        # else:
+        #     meanKurtosis = nrrd.read( tmpdir +'/'+ baseName + '_meanKurtosis.nrrd')[0]
 
         # Compute Return to Origin Probability (RTOP)
         # if not os.path.exists(tmpdir +'/'+ baseName + '_rtop.nrrd'):
@@ -309,7 +337,7 @@ class MUSHACreconstruction():
             shutil.rmtree(tmpdir)
 
 
-        return meanDiff, fracAnisotropy, meanKurtosis#, rtop
+        return meanDiff, fracAnisotropy#, meanKurtosis, rtop
 
 #%% check whether to compute file
 def __fileComputeCheck(self, newFile, oldFile='./'):
