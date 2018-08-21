@@ -53,6 +53,7 @@ def runDenoising( inputDataList, outputNameList ):
 #%% run DIAMOND on benchmark data
 def runDIAMOND( dataNHDRList, inputFolderList, mask, outputNameList, numThreads=50):
 
+    print dataNHDRList
     for dataNHDR in dataNHDRList:
 
         inputFolder = inputFolderList.pop(0)
@@ -233,7 +234,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.subj == 'all': 
-        subjects = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O']
+        # subjects = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O']
+        subjects = ['H','I','J','K','L','M','N','O']
     else:
         subjects = [args.subj]
 
@@ -299,7 +301,7 @@ if __name__ == '__main__':
                                     for dd in dataNHDRupsample ]
             runDIAMOND( dataNHDRupsample[:], ref15ResolutionFolder[:], maskupsample, diamondFilesList[:],  args.threads )
 
-        for resol in [1, 2]: #[0,1,2]:
+        for resol in [0,1,2]:
 
             if resol == 0:
                 resolSTR = '_origRes'
@@ -328,9 +330,9 @@ if __name__ == '__main__':
                 elif denoise == 1:
                     # ------------------ DIAMOND model  ----------------------- # 
                     print 'Preparing DIAMOND model for extrapolation'
-                    NHDR = dataNHDR[:-5] + nhdrResol + '.nhdr'
+                    NHDR = dataDenoisedNHDR[:-5] + nhdrResol + '.nhdr'
                     diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND'+ folderResol + '/',\
-                                                        'dwi'+folderResol + '/' + NHDR, maskPath='mask'+nhdrResol+'.nrrd')
+                                                        'dwi'+folderResol + '/' + NHDR, maskPath='mask'+nhdrResol+'.nrrd', refName='denoised')
                     denoiseSTR = '_dwi_denoised'
                     refHeader =  refInputFolder + 'dwi' +folderResol + '/' + NHDR
 
