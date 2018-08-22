@@ -94,7 +94,44 @@ def readInBvecsAndBvals( inputFolder, bvecsFile='dwi.bvec', bvalsFile='dwi.bval'
     return bvals, np.array(bvecs).T
 
 
+#%%
+#
+#
+#
+#
+def correctDWIbetweenOrigins( origNHDR, targetNHDR):
+    
+    # read original NHDR
+    coordsOrig, gradOrig = extractOriginMatrix(origNHDR)
 
+    # read target NHDR
+    coordsTarget, gradTarget = extractOriginMatrix(targetNHDR)
+
+    # move gradients from origNHDR to coordinates in targetNHDR
+    newGrads = coordsTarget.dot( np.linalg.inv(coordsOrig) ).dot( gradOrig )
+
+    return newGrads
+
+def extractOriginMatrix( NHDR ):
+
+    fo = open(NHDR)
+    lines = fo.readlines()
+    fo.close()
+
+    coords = range(3)
+    grads = []
+    for ll in lines:
+        if ll.find('space directions:') > -1:
+            vec = ll.split(':')[-1].split('(')
+            for d1 in range(3):
+                vstr = vec[d1].split(')')[0].split(',')
+                coords[d1] = np.array([ float(vstr[0]),float(vstr[1]),float(vstr[2]) ] )
+
+        if ll.find('DWMRI_gradient')>-1:
+            vstr = ll.split(':=')[-1].split(' ')
+            grads.append( np.array( [ float(vstr[0]),float(vstr[1]),float(vstr[2][:-1]) ] ) )
+
+    return np.array(coords), np.array(grads)
 
 #%%
 #
