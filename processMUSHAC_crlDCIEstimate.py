@@ -54,17 +54,18 @@ def runDIAMOND( dataNHDR, inputFolder, mask, outputName, targetDWI=None, numThre
     functionName = '/home/ch137122/bin/crlDCIEstimateJaume'
     
     # run DIAMOND
-    if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
-        print 'Computing ' + outputName[:-5] + '_t0.nrrd'
-        try:
-            out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
-                        '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
-                        '--fascicle diamondNCcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
-                        '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr'] )
-        except :
-            print 'Could not run DIAMOND on ' + dataNHDR
-    else:
-        print outputName[:-5] + '_t0.nrrd'  + ' already computed'
+    # if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
+    print 'Computing ' + outputName[:-5] + '_t0.nrrd'
+    try:
+        out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
+                    '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
+                    '--fascicle diamondNCcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
+                    '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
+                    ,'--bbox 0,0,40,229,229,40'] )
+    except :
+        print 'Could not run DIAMOND on ' + dataNHDR
+    # else:
+    #     print outputName[:-5] + '_t0.nrrd'  + ' already computed'
 
     return outputName[:-5]+'_predicted.nhdr'
 
@@ -234,9 +235,9 @@ if __name__ == '__main__':
 
         # ------------------ UPSAMPLE MASK  ----------------------- # 
         upsampledMask = refInputFolder + 'mask_iso1mm.nrrd'
-        if not os.path.exists(upsampledMask):
-            call(['crlResampler2', '-g', upsampledNHDR, '-i', mask, \
-                                '-o' , upsampledMask, '--interp nearest', '-p', args.threads])
+        # if not os.path.exists(upsampledMask):
+        call(['crlResampler2', '-g', upsampledNHDR, '-i', mask, \
+                            '-o' , upsampledMask, '--interp nearest', '-p', args.threads])
 
         # ------------------ DIAMOND model  ----------------------- # 
         # print 'Preparing DIAMOND model for extrapolation'
@@ -273,10 +274,12 @@ if __name__ == '__main__':
                 # call(['crlResampler2', '-g', upsampledNHDR, '-i', targetNHDR , \
                 #                         '-o', outputFolder + 'tmp/' + os.path.basename(targetNHDR)[:-5] + '_registered.nhdr',\
                 #                         '--tinv','-t',outputFolder + 'tmp/transform' ])
-                newTarget = outputFolder + 'tmp/nweTarget.nhdr'
-                if not os.path.exists(outputFolder + 'tmp/'):
-                    os.makedirs(outputFolder + 'tmp/')
-                correctDWIbetweenOrigins( targetNHDR, upsampledNHDR, newTarget)
+                #
+                #
+                # newTarget = outputFolder + 'tmp/nweTarget.nhdr'
+                # if not os.path.exists(outputFolder + 'tmp/'):
+                #     os.makedirs(outputFolder + 'tmp/')
+                # correctDWIbetweenOrigins( targetNHDR, upsampledNHDR, newTarget)
 
 
                 # run diamond and apply reconstruction
@@ -284,7 +287,7 @@ if __name__ == '__main__':
                                         os.path.dirname(upsampledNHDR)+ '/', \
                                         upsampledMask, \
                                         diamondOutput, \
-                                        newTarget, \
+                                        targetNHDR, \
                                         numThreads=args.threads )
 
 
