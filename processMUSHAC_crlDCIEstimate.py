@@ -47,7 +47,7 @@ def runDenoising( inputData, outputName ):
         print '%s already exists. NOt computing denoising algorithm.' %(outputName)
 
 #%% run DIAMOND on benchmark data
-def runDIAMOND( dataNHDR, inputFolder, mask, outputName, targetDWI=None, numThreads=50):
+def runDIAMOND( dataNHDR, inputFolder, mask, outputName, targetNHDR=None, numThreads=50):
 
 
     # define which DIAMOND code to call
@@ -61,11 +61,13 @@ def runDIAMOND( dataNHDR, inputFolder, mask, outputName, targetDWI=None, numThre
                     '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
                     '--fascicle diamondNCcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
                     '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
-                    ,'--bbox 0,0,40,229,229,40'] )
+                    ])#,'--bbox 0,0,80,229,229,5'] )
     except :
         print 'Could not run DIAMOND on ' + dataNHDR
+        # else:
+        #     print outputName[:-5] + '_t0.nrrd'  + ' already computed'
     # else:
-    #     print outputName[:-5] + '_t0.nrrd'  + ' already computed'
+    #     print 'DIAMOND already computed. Skipping'
 
     return outputName[:-5]+'_predicted.nhdr'
 
@@ -200,7 +202,7 @@ if __name__ == '__main__':
     if args.subj == 'all': 
         subjects = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O']
     else:
-        subjects = [args.subj]
+        subjects = args.subj.split(',')
 
     if args.seq == 'all':
         sequences = ['prisma','connectom']
@@ -235,8 +237,8 @@ if __name__ == '__main__':
 
         # ------------------ UPSAMPLE MASK  ----------------------- # 
         upsampledMask = refInputFolder + 'mask_iso1mm.nrrd'
-        # if not os.path.exists(upsampledMask):
-        call(['crlResampler2', '-g', upsampledNHDR, '-i', mask, \
+        if not os.path.exists(upsampledMask):
+            call(['crlResampler2', '-g', upsampledNHDR, '-i', mask, \
                             '-o' , upsampledMask, '--interp nearest', '-p', args.threads])
 
         # ------------------ DIAMOND model  ----------------------- # 
@@ -244,65 +246,109 @@ if __name__ == '__main__':
         # diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND/' ,\
         #                                 'dwi/' + dataNHDR, maskPath='mask.nrrd')
         
+        print '------------------ JOIN ALL TARGETS -----------------------'
+        fullPrediction =  refInputFolder + 'fullPrediction/fullPredictionDWI.nhdr'
+        if not os.path.exists(os.path.dirname(fullPrediction)):
+                os.mkdir(os.path.dirname(fullPrediction))
+        if not os.path.exists(os.path.dirname(fullPrediction)+ '/tmp/'):
+                os.mkdir(os.path.dirname(fullPrediction)+ '/tmp/')
 
-        # ------------------ COMPARISON WITH OTHER MODELS ----------------------- #
+        print '------------------ RESAMPLE ALL TARGETS -----------------------'
+        fullCombineInput = []
+        scanNumbers = {'prisma_st':[],'prisma_sa':[],'connectom_st':[],'connectom_sa':[]}
+        prevPTR = 0
         for seq in sequences:
-            
             for res in ['sa','st']:
 
                 # # set paths
                 inputFolder = args.dir + subj + '/' + seq + '/' + res + '/' 
-                outputFolder = inputFolder +  'fullDIAMOND_denoised_iso1mm/'
                 targetNHDR = inputFolder + 'dwi/' + subj + '_' + seq + '_' + res + '_dwi.nhdr'
+                
+                # read in number of DWI images
+                fo = open(targetNHDR)
+                lines = fo.readlines()
+                fo.close()
+                for ll in lines:
+                    if ll.find('sizes:') > -1:
+                        numScans = int(ll.split(' ')[-1][:-1])
+                        print 'Num scans:' + str(numScans)
+                        scanNumbers[ seq + '_' + res ] = range(prevPTR,(prevPTR+numScans))
+                        prevPTR += numScans
 
-                recNHDR = 'diamondREC_' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_denoised_iso1mm_2_' + seq + '_' + res + '.nrrd'
+                # resample
+                if not os.path.exists(os.path.dirname(fullPrediction) + '/tmp/' + os.path.basename(targetNHDR)):
+                    call(['crlResampler2', '-g', refInputFolder + 'dwi/' + dataNHDR, \
+                                            '-i', targetNHDR, \
+                                            '-o' , os.path.dirname(fullPrediction) + '/tmp/' + os.path.basename(targetNHDR), \
+                                            '--interp nearest', '-p', args.threads])
 
-                print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_denoised_iso1mm'  + \
-                        ' to: ' + subj + '_' + seq + '_' + res
+                fullCombineInput.append( os.path.dirname(fullPrediction) + '/tmp/' + os.path.basename(targetNHDR) )
+
+        print '------------------ COMBINE ALL TARGETS -----------------------'
+        if not os.path.exists(os.path.dirname(fullPrediction) + '/tmp/fullCombine.nhdr'):
+            call(['crlDWICombineAcquisitions', '-i', fullCombineInput[0],\
+                                        '-i', fullCombineInput[1],\
+                                        '-i', fullCombineInput[2],\
+                                        '-i', fullCombineInput[3],\
+                                        '-o',  os.path.dirname(fullPrediction) + '/tmp/fullCombine.nhdr','--nonormalize'])
+                
+        print '------------------------  RUNNING DIAMOND  ------------------------'
+        diamondOutput = os.path.dirname(fullPrediction) + '/' + dataDenoisedNHDR[:-5] + '_DIAMOND3T.nrrd'
+
+        # run diamond and apply reconstruction
+        predictedNHDR = runDIAMOND( os.path.basename(upsampledNHDR) , \
+                                os.path.dirname(upsampledNHDR)+ '/', \
+                                upsampledMask, \
+                                diamondOutput, \
+                                fullPrediction, \
+                                numThreads=args.threads )
+
+        predictedDWIFiles = getListofDWIFiles(fullPrediction)
+
+        # ------------------ regenerate DWI for each case ----------------------- # 
+        print '------------------ regenerate DWI for each case -----------------------'
+        for seq in sequences:
+            
+            for res in ['sa','st']:
+
+                ## TODO separate files
+                # relevant file paths
+                inputFolder = args.dir + subj + '/' + seq + '/' + res + '/' 
+                outputFolder = inputFolder +  'fullDIAMOND_allpred_denoised_iso1mm/'
+                targetNHDR = inputFolder + 'dwi/' + subj + '_' + seq + '_' + res + '_dwi.nhdr'
+                recNHDR = 'diamondREC_' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_denoised_iso1mm_2_' + seq + '_' + res + '.nhdr'
 
                 try:
                     os.makedirs( outputFolder )
                 except:
                     print '\t-Folder ' + outputFolder
+                try:
+                    os.makedirs( outputFolder + 'tmp/' )
+                except:
+                    print '\t-Folder ' + outputFolder + 'tmp/ already exists'
 
+                print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_denoised_iso1mm'  + \
+                        ' to: ' + subj + '_' + seq + '_' + res
 
-                # ------------------ regenerate DWI AND DIAMOND model ----------------------- # 
-                print '------------------------  RUNNING DIAMOND  ------------------------'
-                diamondOutput = outputFolder + recNHDR
+                print '------------------------  REMOVE GRADIENTS  ------------------------'
+                print 'Total num scans:' + str(prevPTR)
+                listofRMGradients = ''
+                boolIx = np.ones([prevPTR])
+                boolIx[scanNumbers[ seq + '_' + res ]] = 0
+                for ii in range(prevPTR):
+                    if boolIx[ii] == 1:
+                        listofRMGradients += str(ii)+', '
+                listofRMGradients = listofRMGradients[:-2]
+                # print 'Remove gradients: ' + listofRMGradients
 
-                # register to target file 
-                # call(['crlResampler2', '-g', upsampledNHDR, '-i', targetNHDR , \
-                #                         '-o', outputFolder + 'tmp/' + os.path.basename(targetNHDR)[:-5] + '_registered.nhdr',\
-                #                         '--tinv','-t',outputFolder + 'tmp/transform' ])
-                #
-                #
-                # newTarget = outputFolder + 'tmp/nweTarget.nhdr'
-                # if not os.path.exists(outputFolder + 'tmp/'):
-                #     os.makedirs(outputFolder + 'tmp/')
-                # correctDWIbetweenOrigins( targetNHDR, upsampledNHDR, newTarget)
-
-
-                # run diamond and apply reconstruction
-                predictedNHDR = runDIAMOND( os.path.basename(upsampledNHDR) , \
-                                        os.path.dirname(upsampledNHDR)+ '/', \
-                                        upsampledMask, \
-                                        diamondOutput, \
-                                        targetNHDR, \
-                                        numThreads=args.threads )
+                call(['crlDWIRemoveGradientImage','-i',diamondOutput[:-5] + '_predicted.nhdr' ,\
+                                                '-o',outputFolder + 'tmp/' + recNHDR,\
+                                                '-r', listofRMGradients ])
 
 
                 print '------------------------  RUNNING RESAMPLER  ------------------------'
-                # register to target file 
-                # call(['crlBlockMatchingRegistration', '-r', targetNHDR, '-f',  predictedNHDR, \
-                #                                     '-o',  predictedNHDR[:-5] + '_registered.nhdr' , \
-                #                                     '-i', outputFolder + 'tmp/transform.tfm', \
-                #                                     '-N', '-n 0', '-e 0', '-s 0' ,'-p 1', '-t affine'])
-                call(['crlResampler2', '-g', targetNHDR, '-i', predictedNHDR , '--interp sinc',\
-                                        '-o', predictedNHDR[:-5] + '_registered.nhdr'])
-
-                ##### TODO SANITY CHECK, the registere NHDR should have the same gradients as the target NHDR
-
-
+                call(['crlResampler2', '-g', targetNHDR, '-i', outputFolder + 'tmp/' +recNHDR , '--interp sinc',\
+                                        '-o', outputFolder + recNHDR[:-5] + '_registered.nhdr'])
 
 
 
