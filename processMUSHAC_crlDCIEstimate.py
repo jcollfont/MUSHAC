@@ -99,7 +99,7 @@ def readInBvecsAndBvals( inputFolder, bvecsFile='dwi.bvec', bvalsFile='dwi.bval'
 #
 #
 #
-def correctDWIbetweenOrigins( origNHDR, targetNHDR):
+def correctDWIbetweenOrigins( origNHDR, targetNHDR, newNHDR):
     
     # read original NHDR
     coordsOrig, gradOrig = extractOriginMatrix(origNHDR)
@@ -108,7 +108,31 @@ def correctDWIbetweenOrigins( origNHDR, targetNHDR):
     coordsTarget, gradTarget = extractOriginMatrix(targetNHDR)
 
     # move gradients from origNHDR to coordinates in targetNHDR
-    newGrads = coordsTarget.dot( np.linalg.inv(coordsOrig) ).dot( gradOrig )
+    newGrads = coordsTarget.dot( np.linalg.inv(coordsOrig) ).dot( gradOrig.T ).T
+    newGradsList = newGrads.tolist()
+
+    # write gradients in new NHDR file
+    fo = open(origNHDR)
+    lines = fo.readlines()
+    fo.close()
+
+    fo = open(newNHDR, 'w+')
+    for ll in lines:
+        if ll.find('DWMRI_gradient')>-1:
+            grad = newGradsList.pop(0)
+            fo.writelines(ll.split(':=')[0] + ':= %0.6f %0.6f %0.6f\n' %(grad[0], grad[1], grad[2]) )
+        elif ll.find('space directions:')>-1:
+            fo.writelines(ll.split(':')[0] + ': (%0.6f %0.6f %0.6f) (%0.6f %0.6f %0.6f) (%0.6f %0.6f %0.6f) none\n' \
+                                    %(coordsTarget[0,0],coordsTarget[1,0],coordsTarget[2,0],\
+                                    coordsTarget[0,1],coordsTarget[1,1],coordsTarget[2,1],\
+                                    coordsTarget[0,2],coordsTarget[1,2],coordsTarget[2,2]) )
+        else:
+            fo.writelines(ll)
+    fo.close()
+
+    nhdrFiles = getListofDWIFiles(origNHDR)
+    for ff in nhdrFiles:
+        shutil.copy( os.path.dirname(origNHDR) + '/' + ff, os.path.dirname(newNHDR) + '/' + ff )
 
     return newGrads
 
@@ -124,14 +148,14 @@ def extractOriginMatrix( NHDR ):
         if ll.find('space directions:') > -1:
             vec = ll.split(':')[-1].split('(')
             for d1 in range(3):
-                vstr = vec[d1].split(')')[0].split(',')
+                vstr = vec[d1+1].split(')')[0].split(',')
                 coords[d1] = np.array([ float(vstr[0]),float(vstr[1]),float(vstr[2]) ] )
 
         if ll.find('DWMRI_gradient')>-1:
             vstr = ll.split(':=')[-1].split(' ')
-            grads.append( np.array( [ float(vstr[0]),float(vstr[1]),float(vstr[2][:-1]) ] ) )
+            grads.append( np.array( [ float(vstr[1]),float(vstr[2]),float(vstr[3]) ] ) )
 
-    return np.array(coords), np.array(grads)
+    return np.array(coords).T, np.array(grads)
 
 #%%
 #
@@ -245,13 +269,18 @@ if __name__ == '__main__':
                 # call(['crlResampler2', '-g', upsampledNHDR, '-i', targetNHDR , \
                 #                         '-o', outputFolder + 'tmp/' + os.path.basename(targetNHDR)[:-5] + '_registered.nhdr',\
                 #                         '--tinv','-t',outputFolder + 'tmp/transform' ])
+                newTarget = outputFolder + 'tmp/nweTarget.nhdr'
+                if not os.path.exists(outputFolder + 'tmp/'):
+                    os.makedirs(outputFolder + 'tmp/')
+                correctDWIbetweenOrigins(targetNHDR,upsampledNHDR, newTarget)
+
 
                 # run diamond and apply reconstruction
                 predictedNHDR = runDIAMOND( os.path.basename(upsampledNHDR) , \
                                         os.path.dirname(upsampledNHDR)+ '/', \
                                         upsampledMask, \
                                         diamondOutput, \
-                                        targetNHDR, \
+                                        newTarget, \
                                         numThreads=args.threads )
 
 
@@ -263,6 +292,8 @@ if __name__ == '__main__':
                 #                                     '-N', '-n 0', '-e 0', '-s 0' ,'-p 1', '-t affine'])
                 call(['crlResampler2', '-g', targetNHDR, '-i', predictedNHDR , \
                                         '-o', predictedNHDR[:-5] + '_registered.nhdr'])
+
+                ##### TODO SANITY CHECK, the registere NHDR should have the same gradients as the target NHDR
 
 
 
