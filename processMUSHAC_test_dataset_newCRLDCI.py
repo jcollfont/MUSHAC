@@ -69,7 +69,8 @@ def runDIAMOND( dataNHDRList, inputFolderList, mask, outputNameList, numThreads=
             print 'Computing ' + outputName[:-5] + '_t0.nrrd'
             try:
                 out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
-                            '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu', '--fascicle diamondcyl'] )
+                            '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu', \
+                            '--fascicle diamondNCcyl', '--fractions_sumto1 0', '--isorfraction 1'] )
             except :
                 print 'Could not run DIAMOND on ' + dataNHDR
         else:
@@ -100,14 +101,9 @@ def readInBvecsAndBvals( inputFolder, bvecsFile='dwi.bvec', bvalsFile='dwi.bval'
     # return bvecs, bvals
     return bvals, np.array(bvecs).T
 
-def resample2HighRes( headerFileList, inputPathList, outputPathList, maskPath, resolution ,nThreads=50):
+def resample2HighRes( headerFile, inputPath, outputPath, maskPath, resolution ,nThreads=50):
 
-    outName = []
-    for headerFile in headerFileList:
-
-        inputPath = inputPathList.pop(0)
-        outputPath = outputPathList.pop(0)
-
+    
         # update header file
         fo = open( inputPath + headerFile )
         lines = fo.readlines()
@@ -288,16 +284,16 @@ if __name__ == '__main__':
                             dataDenoisedNHDR ]
         refInputFolderList = [ refInputFolder + 'dwi/',
                             refInputFolder + 'dwi/' ]
-        diamondFilesList =  [refInputFolder + 'DIAMOND/' + dataNHDR[:-9] + '_DIAMOND3T.nrrd', \
-                            refInputFolder + 'DIAMOND/' +  dataDenoisedNHDR[:-9]  + '_DIAMOND3T.nrrd']
+        # diamondFilesList =  [refInputFolder + 'DIAMOND/' + dataNHDR[:-9] + '_DIAMOND3T.nrrd', \
+        #                     refInputFolder + 'DIAMOND/' +  dataDenoisedNHDR[:-9]  + '_DIAMOND3T.nrrd']
 
         # run DIAMOND on the reference sequence
         print 'Running DIAMOND on reference data'
-        runDIAMOND( dataFilesList[:], refInputFolderList[:], mask, diamondFilesList[:],  numThreads=args.threads )
+        # runDIAMOND( dataFilesList[:], refInputFolderList[:], mask, diamondFilesList[:],  numThreads=args.threads )
 
 
         # ------------------ UPSAMPLE  ----------------------- # 
-        for resol in [1.5, 1.2]:
+        for resol in [1.2]:#[1.5, 1.2]:
 
             print 'Resampling data to %0.1fmm' %(resol)
             if not os.path.exists(refInputFolder + 'dwi_iso%dmm/' %(resol*10)):
@@ -307,9 +303,9 @@ if __name__ == '__main__':
                                                                     mask, resol ,nThreads=int(args.threads))
         
             print 'Running DIAMOND on data at resolution %0.1fmm' %(resol)
-            if not os.path.exists(refInputFolder + 'DIAMOND_iso%dmm/' %(resol*10)):
-                os.mkdir(refInputFolder + 'DIAMOND_iso%dmm/' %(resol*10))
-            diamondFilesList = [ refInputFolder + 'DIAMOND_iso%dmm/' %(resol*10) + dd[:-9] + '_iso%dmm_DIAMOND3T.nrrd' %(resol*10) \
+            if not os.path.exists(refInputFolder + 'DIAMONDNCcycl_test_sumto1_1_iso%dmm/' %(resol*10)):
+                os.mkdir(refInputFolder + 'DIAMONDNCcycl_test_sumto1_1_iso%dmm/' %(resol*10))
+            diamondFilesList = [ refInputFolder + 'DIAMONDNCcycl_test_sumto1_1_iso%dmm/' %(resol*10) + dd[:-9] + '_iso%dmm_DIAMOND3T.nrrd' %(resol*10) \
                                     for dd in dataNHDRupsample ]
             runDIAMOND( dataNHDRupsample[:], ref15ResolutionFolder[:], maskupsample, diamondFilesList[:],  args.threads )
 
@@ -337,7 +333,7 @@ if __name__ == '__main__':
                     # ------------------ DIAMOND model  ----------------------- # 
                     print 'Preparing DIAMOND model for extrapolation'
                     NHDR = dataNHDR[:-5] + nhdrResol + '.nhdr'
-                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND'+ folderResol + '/' ,\
+                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMONDNCcycl_test_sumto1_1'+ folderResol + '/' ,\
                                                         'dwi'+folderResol + '/' + NHDR, maskPath='mask'+nhdrResol+'.nrrd')
                     denoiseSTR = '_dwi'
                     refHeader =  refInputFolder + 'dwi'+folderResol + '/' + NHDR
@@ -345,7 +341,7 @@ if __name__ == '__main__':
                     # ------------------ DIAMOND model  ----------------------- # 
                     print 'Preparing DIAMOND model for extrapolation'
                     NHDR = dataNHDR[:-5] + nhdrResol + '.nhdr'
-                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMOND'+ folderResol + '/',\
+                    diamondModel = MUSHACreconstruction( refInputFolder,'DIAMONDNCcycl_test_sumto1_1'+ folderResol + '/',\
                                                         'dwi'+folderResol + '/' + NHDR, maskPath='mask'+nhdrResol+'.nrrd')
                     denoiseSTR = '_dwi_denoised'
                     refHeader =  refInputFolder + 'dwi' +folderResol + '/' + NHDR
@@ -357,7 +353,7 @@ if __name__ == '__main__':
                             
                         # # set paths
                         inputFolder = args.dir + subj + '/' + seq + '/' + res + '/' 
-                        outputFolder = inputFolder +  'regenerate' +  denoiseSTR + resolSTR + '/'
+                        outputFolder = inputFolder +  'regenerate_NCcycl_test_sumto1_1' +  denoiseSTR + resolSTR + '/'
                         targetNHDR = inputFolder + 'dwi/' + subj + '_' + seq + '_' + res + '_dwi.nhdr'
 
                         recNHDR = 'recDWI_' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  denoiseSTR + resolSTR + '_2_' + seq + '_' + res
@@ -374,14 +370,13 @@ if __name__ == '__main__':
                         
                         # ------------------ regenerate DWI from DIAMOND model ----------------------- # 
                         print '\t-generating reconstructed signal...'
-                        if not os.path.exists(outputFolder + recNHDR + '.nhdr'):
-                            regenerateDWI( diamondFilesList[denoise][:-5] , targetNHDR, outputFolder + recNHDR)
+                        regenerateDWI( diamondFilesList[denoise][:-5] , targetNHDR, outputFolder + recNHDR)
                     
-                        # ## ------------------ get FA and MD from DTI model  ----------------------- # 
-                        # print '\t-computing MD and FA from DTI model'
-                        # # if not os.path.exists( outputFolder + recNHDR + 'tensStick0.nrrd' ):
-                        # diamondModel.computeParamsFromSingleTensorFromDWI( \
-                        #                         bvecs=bvecs, bvals=bvals, recSignal=None, \
-                        #                         recNHDR= outputFolder + recNHDR + '.nhdr', \
-                        #                         outputName= outputFolder + recNHDR + '_DTI', \
-                        #                         anatMask= refInputFolder + 'mask'+nhdrResol+'.nrrd')
+                        # # ------------------ get FA and MD from DTI model  ----------------------- # 
+                        print '\t-computing MD and FA from DTI model'
+                        # if not os.path.exists( outputFolder + recNHDR + 'tensStick0.nrrd' ):
+                        diamondModel.computeParamsFromSingleTensorFromDWI( \
+                                                bvecs=bvecs, bvals=bvals, recSignal=None, \
+                                                recNHDR= outputFolder + recNHDR + '.nhdr', \
+                                                outputName= outputFolder + recNHDR + '_DTI', \
+                                                anatMask= refInputFolder + 'mask'+nhdrResol+'.nrrd')
