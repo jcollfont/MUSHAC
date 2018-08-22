@@ -103,12 +103,16 @@ def correctDWIbetweenOrigins( origNHDR, targetNHDR, newNHDR):
     
     # read original NHDR
     coordsOrig, gradOrig = extractOriginMatrix(origNHDR)
+    u,s,v = np.linalg.svd(coordsOrig)
+    UVOrig = u.dot(v)
 
     # read target NHDR
     coordsTarget, gradTarget = extractOriginMatrix(targetNHDR)
+    u,s,v = np.linalg.svd(coordsTarget)
+    UVTarget = u.dot(v)
 
     # move gradients from origNHDR to coordinates in targetNHDR
-    newGrads = coordsTarget.dot( np.linalg.inv(coordsOrig) ).dot( gradOrig.T ).T
+    newGrads = UVTarget.dot( np.linalg.inv(UVOrig) ).dot( gradOrig.T ).T
     newGradsList = newGrads.tolist()
 
     # write gradients in new NHDR file
@@ -122,7 +126,7 @@ def correctDWIbetweenOrigins( origNHDR, targetNHDR, newNHDR):
             grad = newGradsList.pop(0)
             fo.writelines(ll.split(':=')[0] + ':= %0.6f %0.6f %0.6f\n' %(grad[0], grad[1], grad[2]) )
         elif ll.find('space directions:')>-1:
-            fo.writelines(ll.split(':')[0] + ': (%0.6f %0.6f %0.6f) (%0.6f %0.6f %0.6f) (%0.6f %0.6f %0.6f) none\n' \
+            fo.writelines(ll.split(':')[0] + ': (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) none\n' \
                                     %(coordsTarget[0,0],coordsTarget[1,0],coordsTarget[2,0],\
                                     coordsTarget[0,1],coordsTarget[1,1],coordsTarget[2,1],\
                                     coordsTarget[0,2],coordsTarget[1,2],coordsTarget[2,2]) )
@@ -232,7 +236,7 @@ if __name__ == '__main__':
         upsampledMask = refInputFolder + 'mask_iso1mm.nrrd'
         if not os.path.exists(upsampledMask):
             call(['crlResampler2', '-g', upsampledNHDR, '-i', mask, \
-                                '-o' , upsampledMask, '--interp sinc', '-p', args.threads])
+                                '-o' , upsampledMask, '--interp nearest', '-p', args.threads])
 
         # ------------------ DIAMOND model  ----------------------- # 
         # print 'Preparing DIAMOND model for extrapolation'
@@ -272,7 +276,7 @@ if __name__ == '__main__':
                 newTarget = outputFolder + 'tmp/nweTarget.nhdr'
                 if not os.path.exists(outputFolder + 'tmp/'):
                     os.makedirs(outputFolder + 'tmp/')
-                correctDWIbetweenOrigins(targetNHDR,upsampledNHDR, newTarget)
+                correctDWIbetweenOrigins( targetNHDR, upsampledNHDR, newTarget)
 
 
                 # run diamond and apply reconstruction
@@ -290,7 +294,7 @@ if __name__ == '__main__':
                 #                                     '-o',  predictedNHDR[:-5] + '_registered.nhdr' , \
                 #                                     '-i', outputFolder + 'tmp/transform.tfm', \
                 #                                     '-N', '-n 0', '-e 0', '-s 0' ,'-p 1', '-t affine'])
-                call(['crlResampler2', '-g', targetNHDR, '-i', predictedNHDR , \
+                call(['crlResampler2', '-g', targetNHDR, '-i', predictedNHDR , '--interp sinc',\
                                         '-o', predictedNHDR[:-5] + '_registered.nhdr'])
 
                 ##### TODO SANITY CHECK, the registere NHDR should have the same gradients as the target NHDR
