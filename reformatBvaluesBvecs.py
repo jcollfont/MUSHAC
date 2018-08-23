@@ -86,10 +86,14 @@ if __name__ == '__main__':
      
 
         # create NHDR files
-        if not os.path.exists(inputFolder + 'dwi/' ):
-            os.makedirs(inputFolder + 'dwi/' )
-        if not os.path.exists( inputFolder + 'dwi/' + args.subj + '_' + args.scan + '_' + res + '_dwi.nhdr' ):
-            call([ 'crlDWIConvertFSLToNHDR', '-i', inputFolder + args.dwi, '-o', inputFolder  + 'dwi/' + args.subj + '_' + args.scan + '_' + res + '_dwi.nhdr' , '--bvals', inputFolder + args.bval, '--bvecs', inputFolder + args.bvec])
+        if not os.path.exists(inputFolder + 'dwi_new/' ):
+            os.makedirs(inputFolder + 'dwi_new/' )
+        # if not os.path.exists( inputFolder + 'dwi_new/' + args.subj + '_' + args.scan + '_' + res + '_dwi.nhdr' ):
+        call([ 'crlDWIConvertFSLToNHDR', '-i', inputFolder + args.dwi \
+                                        ,'-o', inputFolder  + 'dwi_new/' + args.subj + '_' + args.scan + '_' + res + '_dwi.nhdr' \
+                                        ,'--bvals', inputFolder + args.bval \
+                                        ,'--bvecs', inputFolder + args.bvec\
+                                        ,'--mirrorGY'])
 
         # reformat masks
         functionCRLConvertBetweenFileFormats = '/opt/el7/pkgs/crkit/nightly/20160731/crkit/bin/crlConvertBetweenFileFormats'

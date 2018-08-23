@@ -61,7 +61,7 @@ def runDIAMOND( dataNHDR, inputFolder, mask, outputName, targetNHDR=None, numThr
                     '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
                     '--fascicle diamondNCcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
                     '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
-                    ])#,'--bbox 0,0,80,229,229,5'] )
+                    ])#,'--bbox 0,0,80,229,229,3'] )
     except :
         print 'Could not run DIAMOND on ' + dataNHDR
         # else:
@@ -248,6 +248,7 @@ if __name__ == '__main__':
         
         print '------------------ JOIN ALL TARGETS -----------------------'
         fullPrediction =  refInputFolder + 'fullPrediction/fullPredictionDWI.nhdr'
+        fullPrediction_flipped =  refInputFolder + 'fullPrediction/fullPredictionDWI_flipped.nhdr'
         if not os.path.exists(os.path.dirname(fullPrediction)):
                 os.mkdir(os.path.dirname(fullPrediction))
         if not os.path.exists(os.path.dirname(fullPrediction)+ '/tmp/'):
@@ -300,10 +301,10 @@ if __name__ == '__main__':
                                 os.path.dirname(upsampledNHDR)+ '/', \
                                 upsampledMask, \
                                 diamondOutput, \
-                                fullPrediction, \
+                                fullPrediction_flipped, \
                                 numThreads=args.threads )
 
-        predictedDWIFiles = getListofDWIFiles(fullPrediction)
+        predictedDWIFiles = getListofDWIFiles(fullPrediction_flipped)
 
         # ------------------ regenerate DWI for each case ----------------------- # 
         print '------------------ regenerate DWI for each case -----------------------'
