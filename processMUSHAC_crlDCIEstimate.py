@@ -285,12 +285,12 @@ if __name__ == '__main__':
                 fullCombineInput.append( os.path.dirname(fullPrediction) + '/tmp/' + os.path.basename(targetNHDR) )
 
         print '------------------ COMBINE ALL TARGETS -----------------------'
-        if not os.path.exists(os.path.dirname(fullPrediction) + '/tmp/fullCombine.nhdr'):
+        if not os.path.exists(fullPrediction):
             call(['crlDWICombineAcquisitions', '-i', fullCombineInput[0],\
                                         '-i', fullCombineInput[1],\
                                         '-i', fullCombineInput[2],\
                                         '-i', fullCombineInput[3],\
-                                        '-o',  os.path.dirname(fullPrediction) + '/tmp/fullCombine.nhdr','--nonormalize'])
+                                        '-o',  fullPrediction,'--nonormalize'])
                 
         print '------------------------  RUNNING DIAMOND  ------------------------'
         diamondOutput = os.path.dirname(fullPrediction) + '/' + dataDenoisedNHDR[:-5] + '_DIAMOND3T.nrrd'
