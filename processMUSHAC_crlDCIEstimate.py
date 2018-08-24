@@ -54,17 +54,17 @@ def runDIAMOND( dataNHDR, inputFolder, mask, outputName, targetNHDR=None, numThr
     functionName = '/home/ch137122/bin/crlDCIEstimateJaume'
     
     # run DIAMOND
-    # if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
-    print 'Computing ' + outputName[:-5] + '_t0.nrrd'
-    try:
-        out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
-                    '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
-                    '--fascicle diamondNCcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
-                    '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
-                    ])#,'--bbox 0,0,80,229,229,3'] )
-    except :
-        print 'Could not run DIAMOND on ' + dataNHDR
-        # else:
+    if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
+        print 'Computing ' + outputName[:-5] + '_t0.nrrd'
+        try:
+            out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
+                        '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
+                        '--fascicle diamondNCcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
+                        '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
+                        ])#,'--bbox 0,0,80,229,229,3'] )
+        except :
+            print 'Could not run DIAMOND on ' + dataNHDR
+            # else:
         #     print outputName[:-5] + '_t0.nrrd'  + ' already computed'
     # else:
     #     print 'DIAMOND already computed. Skipping'
@@ -341,15 +341,15 @@ if __name__ == '__main__':
                         listofRMGradients += str(ii)+', '
                 listofRMGradients = listofRMGradients[:-2]
                 # print 'Remove gradients: ' + listofRMGradients
+                if not os.path.exists( outputFolder + recNHDR[:-5] + '_registered.nhdr' ):
+                    call(['crlDWIRemoveGradientImage','-i',diamondOutput[:-5] + '_predicted.nhdr' ,\
+                                                    '-o',outputFolder + 'tmp/' + recNHDR,\
+                                                    '-r', listofRMGradients ])
 
-                call(['crlDWIRemoveGradientImage','-i',diamondOutput[:-5] + '_predicted.nhdr' ,\
-                                                '-o',outputFolder + 'tmp/' + recNHDR,\
-                                                '-r', listofRMGradients ])
 
-
-                print '------------------------  RUNNING RESAMPLER  ------------------------'
-                call(['crlResampler2', '-g', targetNHDR, '-i', outputFolder + 'tmp/' +recNHDR , '--interp sinc',\
-                                        '-o', outputFolder + recNHDR[:-5] + '_registered.nhdr'])
+                    print '------------------------  RUNNING RESAMPLER  ------------------------'
+                    call(['crlResampler2', '-g', targetNHDR, '-i', outputFolder + 'tmp/' +recNHDR , '--interp sinc',\
+                                            '-o', outputFolder + recNHDR[:-5] + '_registered.nhdr'])
 
 
 
