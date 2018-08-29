@@ -25,6 +25,7 @@ def runDenoising( inputData, outputName ):
 
     if not os.path.exists( outputName ): 
         functionDenoising = '/home/ch137122/Software/mrtrix/mrtrix3/release/bin/dwidenoise'
+        functionGibbs = '/home/ch199899/links/DWI/external/mrtrix3/bin/mrdegibbs'
         functionMRconvert = '/home/ch137122/Software/mrtrix/mrtrix3/release/bin/mrconvert'
 
         tmpdir = '/tmp/tmp%d'  %(np.random.randint(1e6))
@@ -37,7 +38,10 @@ def runDenoising( inputData, outputName ):
         out = call([ functionMRconvert, '-fslgrad', tmpdir + '/bvecs', tmpdir + '/bvals', tmpdir + '/data.nii',  tmpdir + '/data.mif' ])
 
         print 'run denoise'
-        out = call([ functionDenoising, tmpdir + '/data.mif',  tmpdir + '/data-denoised.nii' ])
+        out = call([ functionDenoising, tmpdir + '/data.mif',  tmpdir + '/data-gibbs.mif'])
+
+        print 'run mrdegibbs'
+        out = call([ functionGibbs,  tmpdir + '/data-gibbs.mif', tmpdir + '/data-denoised.nii'  ])
 
         print 'convert back to NHDR'
         out = call([ 'crlDWIConvertFSLToNHDR', '-i', tmpdir + '/data-denoised.nii', '-o', outputName ])
@@ -97,51 +101,6 @@ def readInBvecsAndBvals( inputFolder, bvecsFile='dwi.bvec', bvalsFile='dwi.bval'
     return bvals, np.array(bvecs).T
 
 
-#%%
-#
-#
-#
-#
-def correctDWIbetweenOrigins( origNHDR, targetNHDR, newNHDR):
-    
-    # read original NHDR
-    coordsOrig, gradOrig = extractOriginMatrix(origNHDR)
-    u,s,v = np.linalg.svd(coordsOrig)
-    UVOrig = u.dot(v)
-
-    # read target NHDR
-    coordsTarget, gradTarget = extractOriginMatrix(targetNHDR)
-    u,s,v = np.linalg.svd(coordsTarget)
-    UVTarget = u.dot(v)
-
-    # move gradients from origNHDR to coordinates in targetNHDR
-    newGrads = UVTarget.dot( np.linalg.inv(UVOrig) ).dot( gradOrig.T ).T
-    newGradsList = newGrads.tolist()
-
-    # write gradients in new NHDR file
-    fo = open(origNHDR)
-    lines = fo.readlines()
-    fo.close()
-
-    fo = open(newNHDR, 'w+')
-    for ll in lines:
-        if ll.find('DWMRI_gradient')>-1:
-            grad = newGradsList.pop(0)
-            fo.writelines(ll.split(':=')[0] + ':= %0.6f %0.6f %0.6f\n' %(grad[0], grad[1], grad[2]) )
-        elif ll.find('space directions:')>-1:
-            fo.writelines(ll.split(':')[0] + ': (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) none\n' \
-                                    %(coordsTarget[0,0],coordsTarget[1,0],coordsTarget[2,0],\
-                                    coordsTarget[0,1],coordsTarget[1,1],coordsTarget[2,1],\
-                                    coordsTarget[0,2],coordsTarget[1,2],coordsTarget[2,2]) )
-        else:
-            fo.writelines(ll)
-    fo.close()
-
-    nhdrFiles = getListofDWIFiles(origNHDR)
-    for ff in nhdrFiles:
-        shutil.copy( os.path.dirname(origNHDR) + '/' + ff, os.path.dirname(newNHDR) + '/' + ff )
-
-    return newGrads
 
 def extractOriginMatrix( NHDR ):
 
@@ -224,15 +183,15 @@ if __name__ == '__main__':
 
         # ------------------ DENOISE DATA ----------------------- #
         print '------------------------  RUNNING DENOISING  ------------------------'
-        runDenoising( refInputFolder + 'dwi/' + dataNHDR,  refInputFolder + 'dwi/' + dataDenoisedNHDR )
+        runDenoising( refInputFolder + 'dwi/' + dataNHDR,  refInputFolder + 'dwi_GIBBS/' + dataDenoisedNHDR )
 
         # ------------------ UPSAMPLE  ----------------------- # 
         print '------------------------  RUNNING UPSAMPLE  ------------------------'
-        upsampledNHDR = refInputFolder + 'dwi_iso1mm/' +  dataDenoisedNHDR[:-5] + '_iso1mm.nhdr'
+        upsampledNHDR = refInputFolder + 'dwi_GIBBS_iso1mm/' +  dataDenoisedNHDR[:-5] + '_iso1mm.nhdr'
         if not os.path.exists(os.path.dirname(upsampledNHDR)):
                 os.mkdir(os.path.dirname(upsampledNHDR))
         if not os.path.exists(upsampledNHDR):
-            call(['crlResampler2', '--voxelsize', '1.0,1.0,1.0', '-i', refInputFolder + 'dwi/' + dataDenoisedNHDR, \
+            call(['crlResampler2', '--voxelsize', '1.0,1.0,1.0', '-i', refInputFolder + 'dwi_GIBBS/' + dataDenoisedNHDR, \
                                     '-o' , upsampledNHDR, '--interp sinc', '-p', args.threads])
 
         # ------------------ UPSAMPLE MASK  ----------------------- # 
@@ -247,8 +206,8 @@ if __name__ == '__main__':
         #                                 'dwi/' + dataNHDR, maskPath='mask.nrrd')
         
         print '------------------ JOIN ALL TARGETS -----------------------'
-        fullPrediction =  refInputFolder + 'fullPrediction/fullPredictionDWI.nhdr'
-        fullPrediction_flipped =  refInputFolder + 'fullPrediction/fullPredictionDWI_flipped.nhdr'
+        fullPrediction =  refInputFolder + 'fullPrediction_GIBBS/fullPredictionDWI.nhdr'
+        fullPrediction_flipped =  refInputFolder + 'fullPrediction_GIBBS/fullPredictionDWI_flipped.nhdr'
         if not os.path.exists(os.path.dirname(fullPrediction)):
                 os.mkdir(os.path.dirname(fullPrediction))
         if not os.path.exists(os.path.dirname(fullPrediction)+ '/tmp/'):
@@ -315,9 +274,9 @@ if __name__ == '__main__':
                 ## TODO separate files
                 # relevant file paths
                 inputFolder = args.dir + subj + '/' + seq + '/' + res + '/' 
-                outputFolder = inputFolder +  'fullDIAMOND_allpred_denoised_iso1mm/'
+                outputFolder = inputFolder +  'fullDIAMOND_allpred_denoised_GIBBS_iso1mm/'
                 targetNHDR = inputFolder + 'dwi/' + subj + '_' + seq + '_' + res + '_dwi.nhdr'
-                recNHDR = 'diamondREC_' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_denoised_iso1mm_2_' + seq + '_' + res + '.nhdr'
+                recNHDR = 'diamondREC_' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_GIBBS_denoised_iso1mm_2_' + seq + '_' + res + '.nhdr'
 
                 try:
                     os.makedirs( outputFolder )
@@ -328,7 +287,7 @@ if __name__ == '__main__':
                 except:
                     print '\t-Folder ' + outputFolder + 'tmp/ already exists'
 
-                print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_denoised_iso1mm'  + \
+                print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_GIBBS_denoised_iso1mm'  + \
                         ' to: ' + subj + '_' + seq + '_' + res
 
                 print '------------------------  REMOVE GRADIENTS  ------------------------'
