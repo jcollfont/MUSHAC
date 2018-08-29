@@ -207,7 +207,7 @@ if __name__ == '__main__':
         
         print '------------------ JOIN ALL TARGETS -----------------------'
         fullPrediction =  refInputFolder + 'fullPrediction_GIBBS/fullPredictionDWI.nhdr'
-        fullPrediction_flipped =  refInputFolder + 'fullPrediction_GIBBS/fullPredictionDWI_flipped.nhdr'
+        fullPrediction_flipped =  refInputFolder + 'fullPrediction/fullPredictionDWI_flipped.nhdr'
         if not os.path.exists(os.path.dirname(fullPrediction)):
                 os.mkdir(os.path.dirname(fullPrediction))
         if not os.path.exists(os.path.dirname(fullPrediction)+ '/tmp/'):
