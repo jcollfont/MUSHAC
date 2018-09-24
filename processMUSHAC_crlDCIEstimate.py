@@ -302,15 +302,15 @@ if __name__ == '__main__':
                         listofRMGradients += str(ii)+', '
                 listofRMGradients = listofRMGradients[:-2]
                 # print 'Remove gradients: ' + listofRMGradients
-                # if not os.path.exists( outputFolder + recNHDR[:-5] + '_registered.nhdr' ):
-                #     call(['crlDWIRemoveGradientImage','-i',diamondOutput[:-5] + '_predicted.nhdr' ,\
-                #                                     '-o',outputFolder + 'tmp/' + recNHDR,\
-                #                                     '-r', listofRMGradients ])
+                if not os.path.exists( outputFolder + recNHDR[:-5] + '_registered.nhdr' ):
+                    call(['crlDWIRemoveGradientImage','-i',diamondOutput[:-5] + '_predicted.nhdr' ,\
+                                                    '-o',outputFolder + 'tmp/' + recNHDR,\
+                                                    '-r', listofRMGradients ])
 
 
-                #     print '------------------------  RUNNING RESAMPLER  ------------------------'
-                #     call(['crlResampler2', '-g', targetNHDR, '-i', outputFolder + 'tmp/' +recNHDR , '--interp sinc',\
-                #                             '-o', outputFolder + recNHDR[:-5] + '_registered.nhdr'])
+                    print '------------------------  RUNNING RESAMPLER  ------------------------'
+                    call(['crlResampler2', '-g', targetNHDR, '-i', outputFolder + 'tmp/' +recNHDR , '--interp sinc',\
+                                            '-o', outputFolder + recNHDR[:-5] + '_registered.nhdr'])
 
 
 
