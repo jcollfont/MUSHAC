@@ -58,16 +58,16 @@ def runDIAMOND( dataNHDR, inputFolder, mask, outputName, targetNHDR=None, numThr
     functionName = '/home/ch137122/bin/crlDCIEstimateJaume'
     
     # run DIAMOND
-    if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
-        print 'Computing ' + outputName[:-5] + '_t0.nrrd'
-        try:
-            out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
-                        '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
-                        '--fascicle diamondNCcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
-                        '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
-                        ])#,'--bbox 0,0,80,229,229,3'] )
-        except :
-            print 'Could not run DIAMOND on ' + dataNHDR
+    # if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
+    print 'Computing ' + outputName[:-5] + '_t0.nrrd'
+    try:
+        out = call([functionName, '-i',  inputFolder + dataNHDR, '-m', mask,'-o', outputName,  \
+                    '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
+                    '--fascicle diamondcyl', '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
+                    '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
+                    ])#,'--bbox 0,0,80,229,229,3'] )
+    except :
+        print 'Could not run DIAMOND on ' + dataNHDR
             # else:
         #     print outputName[:-5] + '_t0.nrrd'  + ' already computed'
     # else:
@@ -253,9 +253,14 @@ if __name__ == '__main__':
                                         '-i', fullCombineInput[2],\
                                         '-i', fullCombineInput[3],\
                                         '-o',  fullPrediction,'--nonormalize'])
-                
+
+        if not os.path.exists(fullPrediction_flipped):
+            call(['/home/ch137122/bin/crlDWIPrepare', '--open', fullPrediction, '--write',fullPrediction_flipped, '--flipAxis y -applytogradients 1 -applytoimage 0' ])
+
+
         print '------------------------  RUNNING DIAMOND  ------------------------'
-        diamondOutput = os.path.dirname(fullPrediction) + '/' + dataDenoisedNHDR[:-5] + '_DIAMOND3T.nrrd'
+        diamondOutput = os.path.dirname(fullPrediction) + '/' + dataDenoisedNHDR[:-5] + '_diamondcylDIAMOND3T.nrrd'
+
 
         # run diamond and apply reconstruction
         predictedNHDR = runDIAMOND( os.path.basename(upsampledNHDR) , \
@@ -267,6 +272,12 @@ if __name__ == '__main__':
 
         predictedDWIFiles = getListofDWIFiles(fullPrediction_flipped)
 
+
+
+
+
+
+
         # ------------------ regenerate DWI for each case ----------------------- # 
         print '------------------ regenerate DWI for each case -----------------------'
         for seq in sequences:
@@ -276,9 +287,9 @@ if __name__ == '__main__':
                 ## TODO separate files
                 # relevant file paths
                 inputFolder = args.dir + subj + '/' + seq + '/' + res + '/' 
-                outputFolder = inputFolder +  'fullDIAMOND_allpred_denoised_GIBBS_iso1mm/'
+                outputFolder = inputFolder +  'fulldiamondcylDIAMOND_allpred_denoised_GIBBS_iso1mm/'
                 targetNHDR = inputFolder + 'dwi/' + subj + '_' + seq + '_' + res + '_dwi.nhdr'
-                recNHDR = 'diamondREC_' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_GIBBS_denoised_iso1mm_2_' + seq + '_' + res + '.nhdr'
+                recNHDR = 'diamondREC_' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  'diamondcyl_GIBBS_denoised_iso1mm_2_' + seq + '_' + res + '.nhdr'
 
                 try:
                     os.makedirs( outputFolder )
@@ -302,16 +313,18 @@ if __name__ == '__main__':
                         listofRMGradients += str(ii)+', '
                 listofRMGradients = listofRMGradients[:-2]
                 # print 'Remove gradients: ' + listofRMGradients
-                if not os.path.exists( outputFolder + recNHDR[:-5] + '_registered.nhdr' ):
-                    call(['crlDWIRemoveGradientImage','-i',diamondOutput[:-5] + '_predicted.nhdr' ,\
-                                                    '-o',outputFolder + 'tmp/' + recNHDR,\
-                                                    '-r', listofRMGradients ])
+                # if not os.path.exists( outputFolder + recNHDR[:-5] + '_registered.nhdr' ):
+                call(['crlDWIRemoveGradientImage','-i',diamondOutput[:-5] + '_predicted.nhdr' ,\
+                                                '-o',outputFolder + 'tmp/' + recNHDR,\
+                                                '-r', listofRMGradients ])
 
 
-                    print '------------------------  RUNNING RESAMPLER  ------------------------'
-                    call(['crlResampler2', '-g', targetNHDR, '-i', outputFolder + 'tmp/' +recNHDR , '--interp sinc',\
-                                            '-o', outputFolder + recNHDR[:-5] + '_registered.nhdr'])
 
+
+
+                print '------------------------  RUNNING RESAMPLER  ------------------------'
+                call(['crlResampler2', '-g', targetNHDR, '-i', outputFolder + 'tmp/' +recNHDR , '--interp sinc',\
+                                        '-o', outputFolder + recNHDR[:-5] + '_registered.nhdr'])
 
 
                 # # evaluate results
