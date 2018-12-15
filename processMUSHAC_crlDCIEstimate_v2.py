@@ -84,7 +84,7 @@ def runDenoising( inputData, bvals, bvecs, outputName ):
         print '%s already exists. Not computing denoising algorithm.' %(outputName)
 
 #%% run DIAMOND on benchmark data
-def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, diamondType='diamondNCcyl'):
+def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, diamondType='diamondNCcyl', sumToOneFlag='1'):
 
 
     # define which DIAMOND code to call
@@ -96,7 +96,7 @@ def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, dia
         try:
             out = call([functionName, '-i',  dataNHDR, '-m', mask,'-o', outputName,  \
                         '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
-                        '--fascicle', diamondType, '--fractions_sumto1 1', '--estimateDisoIfNoFascicle 1',\
+                        '--fascicle', diamondType, '--fractions_sumto1', sumToOneFlag, '--estimateDisoIfNoFascicle 1',\
                         '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
                         ])#,'--bbox 0,0,80,229,229,3'] )
         except :
@@ -188,6 +188,8 @@ if __name__ == '__main__':
                         help='Binary option. Should we use gibs sampler (default is true)')
     parser.add_argument('-diamond', '--diamond', default='diamondNCcyl',
                         help='Which type of diamond is to be used?')
+    parser.add_argument('-sumToOne', '--sumToOneFlag', default='1',
+                        help='Use the sum-to-one option (default=1)?')
     parser.add_argument('-p', '--threads', default='50',
                         help='number of threads')
     parser.add_argument('--report', '--report', default=None,
@@ -212,6 +214,7 @@ if __name__ == '__main__':
     
     
     diamond_Tag = args.diamond 
+    sumToOneFlag = args.sumToOneFlag
 
 
     # for all subjects
@@ -343,9 +346,9 @@ if __name__ == '__main__':
 
         # ------------------ RUN DIAMOND  ----------------------- #
         print '------------------------  RUNNING DIAMOND  ------------------------'
-        diamondOutputFolder = trainFolder  + '/diamond_' + diamond_Tag + '/'
+        diamondOutputFolder = trainFolder  + '/diamond_' + diamond_Tag + '_sumToOne' + sumToOneFlag +  '/'
         diamondOutputName = diamondOutputFolder + subj + '_' + args.seq_ref + '_' + args.res_ref + '_' + \
-                                    denoised_Tag +  '_' + diamond_Tag + '_iso1mm_DIAMOND3T.nrrd'
+                                    denoised_Tag +  '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_iso1mm_DIAMOND3T.nrrd'
 
         if not os.path.exists(diamondOutputFolder):
                     os.mkdir(diamondOutputFolder)
@@ -356,7 +359,8 @@ if __name__ == '__main__':
                                 diamondOutputName, \
                                 predictionTargetNHDR, \
                                 args.threads,\
-                                diamond_Tag)
+                                diamondType=diamond_Tag,
+                                sumToOneFlag=sumToOneFlag)
 
         predictedDWIFiles = getListofDWIFiles(predictionTargetNHDR)
 
@@ -370,12 +374,12 @@ if __name__ == '__main__':
             
             for res in ['sa','st']:
 
-                print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_' + denoised_Tag + '_' + diamond_Tag  + \
+                print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_' + denoised_Tag + '_' + diamond_Tag  + '_sumToOne' + sumToOneFlag + \
                         ' to: ' + subj + '_' + seq + '_' + res
 
                 diamondOutput_gradient_removed = folder_target_upsampledNRRD + '/tmp/' + \
                                                         subj + '_' + seq + '_' + res + '_' + \
-                                                        denoised_Tag + '_' + diamond_Tag + '_iso1mm_dwi.nhdr'
+                                                        denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_iso1mm_dwi.nhdr'
                 try:
                     os.makedirs( os.path.dirname(diamondOutput_gradient_removed) )
                 except:
@@ -409,8 +413,8 @@ if __name__ == '__main__':
                 targetNRRD = folder_targetNRRD + subj + '_' + seq + '_' + res + '_dwi.nhdr'
 
                 # output ressampled folder + file
-                outputFolder = args.dir + subj + '/' + seq + '/' + res + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_dwi/'
-                outputPredictionNRRD = outputFolder + subj + '_' + seq + '_' + res + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_dwi.nhdr'
+                outputFolder = args.dir + subj + '/' + seq + '/' + res + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
+                outputPredictionNRRD = outputFolder + subj + '_' + seq + '_' + res + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
 
                 try:
                     os.makedirs( outputFolder )
