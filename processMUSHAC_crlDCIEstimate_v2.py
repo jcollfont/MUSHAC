@@ -108,7 +108,6 @@ def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, dia
 
     return outputName[:-5]+'_predicted.nhdr'
 
-
 def readInBvecsAndBvals( inputFolder, bvecsFile='dwi.bvec', bvalsFile='dwi.bval' ):
 
     # b values
@@ -365,8 +364,6 @@ if __name__ == '__main__':
 
 
 
-
-
         # ------------------ regenerate DWI for each case (separate the predicted results ----------------------- # 
         print '------------------ regenerate DWI for each case -----------------------'
         for seq in sequences:
@@ -394,15 +391,13 @@ if __name__ == '__main__':
                 boolIx[scanNumbers[ seq + '_' + res ]] = 0
                 for ii in range(prevPTR):
                     if boolIx[ii] == 1:
-                        listofRMGradients += str(ii)+', '
+                        listofRMGradients += str(ii)+','
                 listofRMGradients = listofRMGradients[:-2]
-
 
                 # remove gradients from main file
                 call(['crlDWIRemoveGradientImage','-i',diamondOutputName[:-5] + '_predicted.nhdr' ,\
                                                 '-o', diamondOutput_gradient_removed,\
                                                 '-r', listofRMGradients ])
-
 
 
 
