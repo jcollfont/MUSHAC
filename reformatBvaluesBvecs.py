@@ -102,7 +102,7 @@ if __name__ == '__main__':
             #                                 ,'--mirrorGY'])
 
             # reformat masks
-            functionCRLConvertBetweenFileFormats = '/opt/el7/pkgs/crkit/nightly/20160731/crkit/bin/crlConvertBetweenFileFormats'
+            functionCRLConvertBetweenFileFormats = '/opt/el7/pkgs/crkit/nightly/20160503/bin/crlConvertBetweenFileFormats'
             if not os.path.exists( inputFolder + 'mask.nrrd' ):
                 call([ functionCRLConvertBetweenFileFormats, '-in', inputFolder + args.mask ,'-out', inputFolder + 'mask.nrrd'  ])
 
