@@ -334,7 +334,7 @@ if __name__ == '__main__':
         # ------------------ COMBINE TARGET AQUISITIONS  ----------------------- # 
         print '------------------ COMBINE ALL TARGETS -----------------------'
         if not os.path.exists(predictionTargetNHDR):
-            call(['crlDWICombineAcquisitions', '-i', fullCombineInput[0],\
+            call(['/opt/el7/pkgs/crkit/release-current/bin/crlDWICombineAcquisitions', '-i', fullCombineInput[0],\
                                         '-i', fullCombineInput[1],\
                                         '-i', fullCombineInput[2],\
                                         '-i', fullCombineInput[3],\
