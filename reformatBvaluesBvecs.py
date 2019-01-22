@@ -101,10 +101,11 @@ if __name__ == '__main__':
             #                                 ,'--bvecs', inputFolder + args.bvec\
             #                                 ,'--mirrorGY'])
 
-            # reformat masks
-            functionCRLConvertBetweenFileFormats = '/opt/el7/pkgs/crkit/nightly/20160503/bin/crlConvertBetweenFileFormats'
-            if not os.path.exists( inputFolder + 'mask.nrrd' ):
-                call([ functionCRLConvertBetweenFileFormats, '-in', inputFolder + args.mask ,'-out', inputFolder + 'mask.nrrd'  ])
+            if (sc == 'prisma')&(res=='st'):
+                # reformat masks
+                functionCRLConvertBetweenFileFormats = '/opt/el7/pkgs/crkit/nightly/20160503/bin/crlConvertBetweenFileFormats'
+                if not os.path.exists( inputFolder + 'mask.nrrd' ):
+                    call([ functionCRLConvertBetweenFileFormats, '-in', inputFolder + args.mask ,'-out', inputFolder + 'mask.nrrd'  ])
 
             # # reformat MPRAGE
             # if not os.path.exists( args.dir + '/'  + args.subj + '/' + 'mprage.nrrd' ):
