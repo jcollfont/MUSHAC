@@ -88,7 +88,7 @@ def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, dia
 
 
     # define which DIAMOND code to call
-    functionName = '/home/ch137122/bin/crlDCIEstimateJaume'
+    functionName = '/home/ch137122/bin/crlDCIEstimateJaume2'
     
     # run DIAMOND
     if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
@@ -231,6 +231,8 @@ if __name__ == '__main__':
         maskFSL = trainFolder +'mask.nii.gz'
         maskNRRD = trainFolder + 'mask.nrrd'
 
+        svGradients = trainFolder + 'dwi_m'
+
         # ------------------ DENOISE DATA ----------------------- #
         folder_denoised_data = trainFolder + 'dwi_' + denoised_Tag + '/'
         dataDenoisedNHDR = folder_denoised_data + subj + '_' + args.seq_ref + '_' + args.res_ref + '_' + denoised_Tag + '_dwi.nhdr'
@@ -261,9 +263,7 @@ if __name__ == '__main__':
         if not os.path.exists(upsampledMask):
             call(['crlResampler2', '-g', upsampledNHDR, '-i', maskNRRD, \
                             '-o' , upsampledMask, '--interp nearest', '-p', args.threads])
-
-
-
+        
 
 
         # ------------------ prepare prediction targets  ----------------------- # 
