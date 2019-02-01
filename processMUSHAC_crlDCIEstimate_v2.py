@@ -7,6 +7,7 @@ import shutil
 from subprocess import call
 import sys
 import argparse
+from joblib import Parallel, delayed
 
 # DIPY
 from dipy.core.gradients import gradient_table
@@ -159,15 +160,70 @@ def extractOriginMatrix( NHDR ):
 #
 #
 #
-#
-def regenerateDWI( baseName, targetName, outputName):
+# #
+# def regenerateDWI( baseName, targetName, outputName):
 
-    call(['/home/ch137122/bin/crlDCIRegenerateDWI', '-i', baseName + '_t0.nrrd', '-i', baseName + '_t1.nrrd', '-i', baseName + '_t2.nrrd' \
-                        , '--fractions', baseName + '_fractions.nrrd'\
-                        ,  '--kappa', baseName + '_kappa.nrrd'\
-                        , '--refdwi', targetName \
-                        , '-o', outputName ])
-                        
+#     call(['/home/ch137122/bin/crlDCIRegenerateDWI', '-i', baseName + '_t0.nrrd', '-i', baseName + '_t1.nrrd', '-i', baseName + '_t2.nrrd' \
+#                         , '--fractions', baseName + '_fractions.nrrd'\
+#                         ,  '--kappa', baseName + '_kappa.nrrd'\
+#                         , '--refdwi', targetName \
+#                         , '-o', outputName ])
+
+def regenerateDWI( xmlFile, svGradients, targetFile, outputName, pthreads):
+    call(['/home/ch137122/bin/crlDCIGenerateSignal','-i', xmlFile, \
+                '-o', outputName, \
+                '--scheme',targetFile,\
+                '--svgradients', svGradients,\
+                '-p', pthreads])                     
+
+
+
+#%%
+#
+#
+#
+#
+def upsampleSCGradients(inputDir, b0File):
+
+    for axis in ['x','y','z']:
+            
+        # retrieve all files
+        svGradFile = 'dwi_modb_'+axis+'.nii.gz'
+
+        # create output folder
+        tempDir = inputDir + 'tempSCG_'+axis+'/'
+        if not os.path.exists(tempDir):
+            os.makedirs(tempDir)
+
+        # convert to N3 series
+        call(['/home/ch137122/bin/crlConvert4DToN3D','-i', inputDir + svGradFile, '-o', tempDir + svGradFile])
+        
+        # resample
+        files = os.listdir(tempDir)
+        # joinFiles = []
+        # for ff in files:
+        #     call(['crlResampler2','-g',  inputDir + 'N_prisma_st_denoised_GIBBS_diamondNCcyl_sumToOne1_iso1mm_DIAMOND3T_b0.nrrd',\
+        #             '-i',  tempDir + ff, '-o', tempDir + ff[:-7] + '_1mm.nrrd' ,'-p 40'])
+        #     joinFiles += ['-i', tempDir + ff[:-7] + '_1mm.nrrd'  ]
+        outFiles = Parallel(n_jobs=40)( delayed(applyResampler) \
+                (  b0File,\
+                    tempDir + ff, \
+                    tempDir + ff[:-7] + '_1mm.nrrd' ) for ff in files)
+
+        joinFiles = []
+        for ff in outFiles:
+            joinFiles += ['-i', ff]
+
+        # move back to N4 dim
+        # call(['/home/ch137122/bin/crlConvertN3DTo4D'] + joinFiles + ['-o', inputDir + 'dwi_modb_res_x.nrrd'])
+        call(['crlConstructVectorImage'] + outFiles + [inputDir + 'dwi_modb_res_'+axis+'.nrrd'])
+    
+    return inputDir + 'dwi_modb_res.nrrd'
+
+def applyResampler( referenceImage, inputFile, outputFile ):
+    call(['crlResampler2','-g',  referenceImage,\
+                '-i',  inputFile, '-o', outputFile ,'-p 40'])
+    return  outputFile
 
 # ------------------ MAIN ----------------------- #
 
@@ -230,8 +286,6 @@ if __name__ == '__main__':
 
         maskFSL = trainFolder +'mask.nii.gz'
         maskNRRD = trainFolder + 'mask.nrrd'
-
-        svGradients = trainFolder + 'dwi_m'
 
         # ------------------ DENOISE DATA ----------------------- #
         folder_denoised_data = trainFolder + 'dwi_' + denoised_Tag + '/'
@@ -317,7 +371,7 @@ if __name__ == '__main__':
 
                 # resample
                 folder_target_upsampledNRRD = args.dir + subj + '/' + seq + '/' + res + '/dwi_iso1mm/'
-                target_upsampledNRRD = folder_targetNRRD + subj + '_' + seq + '_' + res + '_iso1mm_dwi.nhdr'
+                target_upsampledNRRD = folder_targetNRRD + subj + '_' + seq + '_' + res + '_iso1mm_dwi.nhdr' # there is a mistake here with the folder used
                 if not os.path.exists(folder_target_upsampledNRRD):
                     os.mkdir(folder_target_upsampledNRRD)
 
@@ -363,7 +417,8 @@ if __name__ == '__main__':
                                 sumToOneFlag=sumToOneFlag)
 
         predictedDWIFiles = getListofDWIFiles(predictionTargetNHDR)
-
+        diamondXML = diamondOutputName[:-5] + '.xml'
+        diamondB0File = diamondOutputName[:-5] + '_b0.nrrd'
 
 
 
@@ -372,7 +427,7 @@ if __name__ == '__main__':
         print '------------------ regenerate DWI for each case -----------------------'
         for seq in sequences:
             
-            for res in ['sa','st']:
+            for res in ['st','sa']:
 
                 print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_' + denoised_Tag + '_' + diamond_Tag  + '_sumToOne' + sumToOneFlag + \
                         ' to: ' + subj + '_' + seq + '_' + res
@@ -396,15 +451,14 @@ if __name__ == '__main__':
                 for ii in range(prevPTR):
                     if boolIx[ii] == 1:
                         listofRMGradients += str(ii)+','
-                listofRMGradients = listofRMGradients[:-2]
+                listofRMGradients = listofRMGradients[:-1]
+                # print listofRMGradients
+                # print scanNumbers
 
                 # remove gradients from main file
                 call(['crlDWIRemoveGradientImage','-i',diamondOutputName[:-5] + '_predicted.nhdr' ,\
                                                 '-o', diamondOutput_gradient_removed,\
                                                 '-r', listofRMGradients ])
-
-
-
 
                 print '------------------------  RUNNING RESAMPLER  ------------------------'
 
@@ -423,7 +477,44 @@ if __name__ == '__main__':
 
                 call(['crlResampler2',  '-g', targetNRRD, \
                                         '-i', diamondOutput_gradient_removed, '--interp sinc',\
-                                        '-o', outputPredictionNRRD ])
+                                        '-o', outputPredictionNRRD,\
+                                        '-p', args.threads ])
+
+
+                if seq == 'connectom':
+
+                    print '------------------------  Prepare spatially varying gradients  ------------------------'
+                    svGradientsDir = args.dir + subj + '/' + seq + '/' + res + '/' 
+                    if not os.path.exists(  svGradientsDir + 'dwi_modb_res_z.nrrd' ):
+                        svGradients = upsampleSCGradients(svGradientsDir, diamondB0File)
+                    else:
+                        svGradients = svGradientsDir + 'dwi_modb_res.nrrd'
+
+                    print 'Done'
+                    print '------------------------  RUNNING predictor  ------------------------'
+                    outputName_SVGPrediction =  args.dir + subj + '/' + seq + '/' + res + '/dwi_iso1mm/tmp/' + \
+                                            subj + '_' + seq + '_' + res + '_' + \
+                                            denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_iso1mm_svgrad_dwi.nhdr'
+
+                    if not os.path.exists( os.path.dirname(outputName_SVGPrediction)):
+                        os.makedirs(os.path.dirname(outputName_SVGPrediction))
+
+                    regenerateDWI( diamondXML, svGradients, diamondOutput_gradient_removed, outputName_SVGPrediction, args.threads)
+                    
+
+                    # output ressampled folder + file
+                    outputFolder = args.dir + subj + '/' + seq + '/' + res + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_svGrad_dwi/'
+                    outputPredictionNRRD = outputFolder + subj + '_' + seq + '_' + res + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_svGrad_dwi.nhdr'
+
+                    try:
+                        os.makedirs( outputFolder )
+                    except:
+                        print '\t-Folder ' + outputFolder
+
+                    call(['crlResampler2',  '-g', targetNRRD, \
+                                            '-i', outputName_SVGPrediction, '--interp sinc',\
+                                            '-o', outputPredictionNRRD,\
+                                            '-p', args.threads ])
 
 
                 # # evaluate results
@@ -437,3 +528,4 @@ if __name__ == '__main__':
                 #                         recNHDR= outputFolder + recNHDR + '.nhdr', \
                 #                         outputName= outputFolder + recNHDR + '_DTI', \
                 #                         anatMask= refInputFolder + 'mask'+nhdrResol+'.nrrd')
+

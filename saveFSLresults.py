@@ -105,7 +105,6 @@ if __name__ == '__main__':
     for scanModel in ['prisma', 'connectom']:
         for scanType in ['st', 'sa']:
 
-
             # get reconstructed NHDR files
             if args.denoise == 'gibbs':
                 denoised_Tag = 'denoised_GIBBS'
@@ -117,18 +116,19 @@ if __name__ == '__main__':
             diamond_Tag = args.diamond 
             sumToOneFlag = args.sumToOneFlag
 
+
             diamondFolder = baseDir + subj + '/' + scanModel + '/' + scanType + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
             diamondName = diamondFolder + subj + '_' + scanModel + '_' + scanType + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
 
 
-            # evaluate FA and MD on image reconstruction
-            outputDTIFolder = baseDir + '/' + subj + '/' + scanModel + '/' + scanType + '/dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
-            outputDTIName = outputDTIFolder + subj + '_' + scanModel + '_' + scanType + 'dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
+            # # evaluate FA and MD on image reconstruction
+            # outputDTIFolder = baseDir + '/' + subj + '/' + scanModel + '/' + scanType + '/dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
+            # outputDTIName = outputDTIFolder + subj + '_' + scanModel + '_' + scanType + 'dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
             
-            if not os.path.exists(outputDTIFolder):
-                os.makedirs(outputDTIFolder)
+            # if not os.path.exists(outputDTIFolder):
+            #     os.makedirs(outputDTIFolder)
             
-            meanDiff, fracAnisotropy = computeParamsFromSingleTensorFromDWI(diamondName, outputName=outputDTIName)
+            # meanDiff, fracAnisotropy = computeParamsFromSingleTensorFromDWI(diamondName, outputName=outputDTIName)
             
             # save to FSL format
             outputFSLFolder = args.outdir + args.subj+'/'+ scanModel +'/'+ scanType +'/'
@@ -142,6 +142,23 @@ if __name__ == '__main__':
                                         '--bvecs', outputFSLFolder + 'dwi.bvecs',\
                                         '--bvals', outputFSLFolder + 'dwi.bvals'])
 
+
+            if (scanModel == 'connectom'):
+
+                diamondFolder = baseDir + subj + '/' + scanModel + '/' + scanType + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_svGrad_dwi/'
+                diamondName = diamondFolder + subj + '_' + scanModel + '_' + scanType + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_svGrad_dwi.nhdr'
+
+                # save to FSL format
+                outputFSLFolder = args.outdir + args.subj+'/'+ scanModel +'/'+ scanType +'/'
+                outputFSLName = args.subj+'_'+ scanModel +'_'+ scanType +'_svGrad_dwi.nii'
+                
+                if not os.path.exists(outputFSLFolder):
+                    os.makedirs(outputFSLFolder)
+
+                call(['crlDWIConvertNHDRForFSL', '-i', diamondName,\
+                                            '--data', outputFSLFolder + outputFSLName,\
+                                            '--bvecs', outputFSLFolder + 'dwi_svGrad.bvecs',\
+                                            '--bvals', outputFSLFolder + 'dwi_svGrad.bvals'])
 
 
 
