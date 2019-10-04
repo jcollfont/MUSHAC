@@ -73,17 +73,17 @@ class MUSHACreconstruction():
         self.diamondMose = nrrd.read( self.loadedFiles['mose'] )[0]
         self.numTensors = np.max(self.diamondMose.ravel())
         self.imgSize = self.diamondMose.shape
-        print '\t-MOSE: %s' %(self.loadedFiles['mose'])
+        print( '\t-MOSE: %s' %(self.loadedFiles['mose']))
 
         # get anatomical mask
         self.loadedFiles['mask'] = self.paths['base'] + maskPath
         try:
             mask = nrrd.read( self.loadedFiles['mask'] )[0]
             self.anatMask = np.where(mask.ravel())[0]
-            print '\t-Mask: %s' %(self.loadedFiles['mask'])
+            print( '\t-Mask: %s' %(self.loadedFiles['mask']))
         except:
             self.anatMask = np.arange(np.prod(self.imgSize))
-            print '\t-Mask: No mask found! Using all voxels'
+            print( '\t-Mask: No mask found! Using all voxels')
 
         # reshape mose to mask format
         self.diamondMose = self.diamondMose.ravel()[self.anatMask]
@@ -94,13 +94,13 @@ class MUSHACreconstruction():
         self.diamondFractions = nrrd.read( self.loadedFiles['fractions'] )[0]
         self.diamondFractions = self.diamondFractions[:self.numTensors+1,:,:,:]\
                                                 .reshape(self.numTensors+1, np.prod(self.imgSize)).T[self.anatMask,:]
-        print '\t-Fractions: %s' %(self.loadedFiles['fractions'])
+        print( '\t-Fractions: %s' %(self.loadedFiles['fractions']))
 
         # get B0
         self.loadedFiles['b0'] = self.paths['diamond'] + [ff for ff in files \
                                                             if ('_b0.nrrd' in ff)&( refName in ff )&( 'mtm' not in ff )][0]
         self.diamondB0 = nrrd.read( self.loadedFiles['b0'] )[0].ravel()[self.anatMask]
-        print '\t-Bo: %s' %(self.loadedFiles['b0'])
+        print( '\t-Bo: %s' %(self.loadedFiles['b0']))
 
         # read header info from B0
         self._readHeaderInfo( self.loadedFiles['b0'] )
@@ -116,7 +116,7 @@ class MUSHACreconstruction():
             tensor6D = nrrd.read( tensorList[-1] )[0].reshape( (6, np.prod(self.imgSize)) ).T[self.anatMask,:]
             self.__setTensorMatrixfrom6D( tensor6D, tt )
 
-            print '\t-Tensor %d: %s' %(tt, tensorList[-1])
+            print( '\t-Tensor %d: %s' %(tt, tensorList[-1]))
 
         self.loadedFiles['tensors'] = tensorList
 
@@ -226,7 +226,7 @@ class MUSHACreconstruction():
             try:
                 os.makedirs(outputDir)
             except:
-                print outputDir + ' already exists'
+                print( outputDir + ' already exists')
 
         # for all tensors
         diffusionVec = []
@@ -290,7 +290,7 @@ class MUSHACreconstruction():
         try:
             os.makedirs(tmpdir)
         except:
-            print tmpdir + ' already exists'
+            print( tmpdir + ' already exists')
         if recNHDR== '':
             saveNRRDwithHeader( recSignal, refHeader, tmpdir, '/recDWI' , bvals, bvecs )
             recNHDR = tmpdir+'/recDWI.nhdr'

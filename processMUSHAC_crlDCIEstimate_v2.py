@@ -60,29 +60,29 @@ def runDenoising( inputData, bvals, bvecs, outputName ):
         os.makedirs(tmpdir)
 
         if inputData.endswith('.nrrd'):
-            print 'Convert to FSL'
+            print( 'Convert to FSL')
             out = call([ 'crlDWIConvertNHDRForFSL', '-i', inputData, '--data', tmpdir + '/data.nii' ,\
                             '--bvals',  tmpdir + '/bvals', '--bvecs', tmpdir + '/bvecs'])
             inputData =  tmpdir + '/data.nii' 
             bvecs =  tmpdir + '/bvecs'
             bvals =  tmpdir + '/bvals'
 
-        print 'Convert to MIF'
+        print( 'Convert to MIF')
         out = call([ functionMRconvert, '-fslgrad', bvecs, bvals, inputData,  tmpdir + '/data.mif' ])
 
-        print 'run denoise'
+        print( 'run denoise')
         out = call([ functionDenoising, tmpdir + '/data.mif',  tmpdir + '/data-gibbs.mif'])
 
-        print 'run mrdegibbs'
+        print( 'run mrdegibbs')
         out = call([ functionGibbs,  tmpdir + '/data-gibbs.mif', tmpdir + '/data-denoised.nii'  ])
 
-        print 'convert back to NHDR'
+        print( 'convert back to NHDR')
         convertFSLToNHDR( tmpdir + '/data-denoised.nii', bvecs, bvals, outputName )
         
 
         shutil.rmtree(tmpdir)
     else:
-        print '%s already exists. Not computing denoising algorithm.' %(outputName)
+        print( '%s already exists. Not computing denoising algorithm.' %(outputName))
 
 #%% run DIAMOND on benchmark data
 def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, diamondType='diamondNCcyl', sumToOneFlag='1'):
@@ -93,7 +93,7 @@ def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, dia
     
     # run DIAMOND
     if not os.path.exists( outputName[:-5] + '_predicted.nhdr'):
-        print 'Computing ' + outputName[:-5] + '_t0.nrrd'
+        print( 'Computing ' + outputName[:-5] + '_t0.nrrd')
         try:
             out = call([functionName, '-i',  dataNHDR, '-m', mask,'-o', outputName,  \
                         '--residuals' , '-n 3', '-p ' + str(numThreads) , '--automose aicu',\
@@ -101,11 +101,11 @@ def runDIAMOND( dataNHDR,  mask, outputName, targetNHDR=None, numThreads=50, dia
                         '--predictedsignalscheme',targetNHDR,'--predictedsignal',outputName[:-5]+'_predicted.nhdr' \
                         ])#,'--bbox 0,0,80,229,229,3'] )
         except :
-            print 'Could not run DIAMOND on ' + dataNHDR
+            print( 'Could not run DIAMOND on ' + dataNHDR)
                 # else:
-            #     print outputName[:-5] + '_t0.nrrd'  + ' already computed'
+            #     print( outputName[:-5] + '_t0.nrrd'  + ' already computed')
         # else:
-        #     print 'DIAMOND already computed. Skipping'
+        #     print( 'DIAMOND already computed. Skipping')
 
     return outputName[:-5]+'_predicted.nhdr'
 
@@ -276,7 +276,7 @@ if __name__ == '__main__':
     # for all subjects
     for subj in subjects:
 
-        print 'Subject ' + subj 
+        print( 'Subject ' + subj )
 
         # input data names and paths
         trainFolder = args.dir + subj + '/' + args.seq_ref + '/' + args.res_ref + '/' 
@@ -294,14 +294,14 @@ if __name__ == '__main__':
 
         if not os.path.exists(folder_denoised_data):
                 os.mkdir(folder_denoised_data)
-        print '------------------------  RUNNING DENOISING  ------------------------'
+        print( '------------------------  RUNNING DENOISING  ------------------------')
         runDenoising( trainDataFSL, bvalsFSL, bvecsFSL, dataDenoisedNHDR )
         # input is in FSL format, output is in NRRD
 
         
 
         # ------------------ UPSAMPLE to 1mm**3 ----------------------- # 
-        print '------------------------  RUNNING UPSAMPLE  ------------------------'
+        print( '------------------------  RUNNING UPSAMPLE  ------------------------')
         folder_upsampled = trainFolder + 'dwi_' + denoised_Tag + '_iso1mm/'
         upsampledNHDR = folder_upsampled  +  subj + '_' + args.seq_ref + '_' + args.res_ref + '_' + denoised_Tag + '_iso1mm_dwi.nhdr'
         if not os.path.exists(folder_upsampled):
@@ -322,7 +322,7 @@ if __name__ == '__main__':
 
         # ------------------ prepare prediction targets  ----------------------- # 
         # after this section, each scan type of a subject shoould have an upsampled version (1mm**3) of the original data in nrrd
-        print '------------------ JOIN ALL TARGETS -----------------------'
+        print( '------------------ JOIN ALL TARGETS -----------------------')
         folder_predictionTarget =  trainFolder + 'predictionTarget/'
         predictionTargetNHDR = folder_predictionTarget + 'predictionTarget.nhdr'
 
@@ -333,7 +333,7 @@ if __name__ == '__main__':
 
 
 
-        print '------------------ CONVERT TO NRRD AND RESAMPLE ALL TARGETS -----------------------'
+        print( '------------------ CONVERT TO NRRD AND RESAMPLE ALL TARGETS -----------------------')
         fullCombineInput = []
         scanNumbers = {'prisma_st':[],'prisma_sa':[],'connectom_st':[],'connectom_sa':[]}
         prevPTR = 0
@@ -363,7 +363,7 @@ if __name__ == '__main__':
                 for ll in lines:
                     if ll.find('sizes:') > -1:
                         numScans = int(ll.split(' ')[-1][:-1])
-                        print 'Num scans:' + str(numScans)
+                        print( 'Num scans:' + str(numScans))
                         scanNumbers[ seq + '_' + res ] = range(prevPTR,(prevPTR+numScans))
                         prevPTR += numScans
 
@@ -386,7 +386,7 @@ if __name__ == '__main__':
 
 
         # ------------------ COMBINE TARGET AQUISITIONS  ----------------------- # 
-        print '------------------ COMBINE ALL TARGETS -----------------------'
+        print( '------------------ COMBINE ALL TARGETS -----------------------')
         if not os.path.exists(predictionTargetNHDR):
             call(['/opt/el7/pkgs/crkit/release-current/bin/crlDWICombineAcquisitions', '-i', fullCombineInput[0],\
                                         '-i', fullCombineInput[1],\
@@ -399,7 +399,7 @@ if __name__ == '__main__':
 
 
         # ------------------ RUN DIAMOND  ----------------------- #
-        print '------------------------  RUNNING DIAMOND  ------------------------'
+        print( '------------------------  RUNNING DIAMOND  ------------------------')
         diamondOutputFolder = trainFolder  + '/diamond_' + diamond_Tag + '_sumToOne' + sumToOneFlag +  '/'
         diamondOutputName = diamondOutputFolder + subj + '_' + args.seq_ref + '_' + args.res_ref + '_' + \
                                     denoised_Tag +  '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_iso1mm_DIAMOND3T.nrrd'
@@ -424,13 +424,13 @@ if __name__ == '__main__':
 
 
         # ------------------ regenerate DWI for each case (separate the predicted results ----------------------- # 
-        print '------------------ regenerate DWI for each case -----------------------'
+        print( '------------------ regenerate DWI for each case -----------------------')
         for seq in sequences:
             
             for res in ['st','sa']:
 
-                print 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_' + denoised_Tag + '_' + diamond_Tag  + '_sumToOne' + sumToOneFlag + \
-                        ' to: ' + subj + '_' + seq + '_' + res
+                print( 'Mapping: ' + subj + '_' + args.seq_ref + '_' +  args.res_ref +  '_' + denoised_Tag + '_' + diamond_Tag  + '_sumToOne' + sumToOneFlag + \
+                        ' to: ' + subj + '_' + seq + '_' + res)
 
                 diamondOutput_gradient_removed = folder_target_upsampledNRRD + '/tmp/' + \
                                                         subj + '_' + seq + '_' + res + '_' + \
@@ -438,13 +438,13 @@ if __name__ == '__main__':
                 try:
                     os.makedirs( os.path.dirname(diamondOutput_gradient_removed) )
                 except:
-                    print '\t-Folder ' + os.path.dirname(diamondOutput_gradient_removed)
+                    print( '\t-Folder ' + os.path.dirname(diamondOutput_gradient_removed))
 
                 
-                print '------------------------  REMOVE GRADIENTS  ------------------------'
+                print( '------------------------  REMOVE GRADIENTS  ------------------------')
                 
                 # get list of gradients to remove from main file
-                print 'Total num scans:' + str(prevPTR)
+                print( 'Total num scans:' + str(prevPTR))
                 listofRMGradients = ''
                 boolIx = np.ones([prevPTR])
                 boolIx[scanNumbers[ seq + '_' + res ]] = 0
@@ -452,15 +452,15 @@ if __name__ == '__main__':
                     if boolIx[ii] == 1:
                         listofRMGradients += str(ii)+','
                 listofRMGradients = listofRMGradients[:-1]
-                # print listofRMGradients
-                # print scanNumbers
+                # print( listofRMGradients)
+                # print( scanNumbers)
 
                 # remove gradients from main file
                 call(['crlDWIRemoveGradientImage','-i',diamondOutputName[:-5] + '_predicted.nhdr' ,\
                                                 '-o', diamondOutput_gradient_removed,\
                                                 '-r', listofRMGradients ])
 
-                print '------------------------  RUNNING RESAMPLER  ------------------------'
+                print( '------------------------  RUNNING RESAMPLER  ------------------------')
 
                 # Resample target folder + file
                 folder_targetNRRD = args.dir + subj + '/' + seq + '/' + res + '/dwi/'
@@ -473,7 +473,7 @@ if __name__ == '__main__':
                 try:
                     os.makedirs( outputFolder )
                 except:
-                    print '\t-Folder ' + outputFolder
+                    print( '\t-Folder ' + outputFolder)
 
                 call(['crlResampler2',  '-g', targetNRRD, \
                                         '-i', diamondOutput_gradient_removed, '--interp sinc',\
@@ -483,15 +483,15 @@ if __name__ == '__main__':
 
                 if seq == 'connectom':
 
-                    print '------------------------  Prepare spatially varying gradients  ------------------------'
+                    print( '------------------------  Prepare spatially varying gradients  ------------------------')
                     svGradientsDir = args.dir + subj + '/' + seq + '/' + res + '/' 
                     if not os.path.exists(  svGradientsDir + 'dwi_modb_res_z.nrrd' ):
                         svGradients = upsampleSCGradients(svGradientsDir, diamondB0File)
                     else:
                         svGradients = svGradientsDir + 'dwi_modb_res.nrrd'
 
-                    print 'Done'
-                    print '------------------------  RUNNING predictor  ------------------------'
+                    print( 'Done')
+                    print( '------------------------  RUNNING predictor  ------------------------')
                     outputName_SVGPrediction =  args.dir + subj + '/' + seq + '/' + res + '/dwi_iso1mm/tmp/' + \
                                             subj + '_' + seq + '_' + res + '_' + \
                                             denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_iso1mm_svgrad_dwi.nhdr'
@@ -509,7 +509,7 @@ if __name__ == '__main__':
                     try:
                         os.makedirs( outputFolder )
                     except:
-                        print '\t-Folder ' + outputFolder
+                        print( '\t-Folder ' + outputFolder)
 
                     call(['crlResampler2',  '-g', targetNRRD, \
                                             '-i', outputName_SVGPrediction, '--interp sinc',\
@@ -521,7 +521,7 @@ if __name__ == '__main__':
                 # bvals, bvecs = readInBvecsAndBvals( inputFolder )                                           # define gradients from target file
 
                 # # # ------------------ get FA and MD from DTI model  ----------------------- # 
-                # print '\t-computing MD and FA from DTI model'
+                # print( '\t-computing MD and FA from DTI model')
                 # # if not os.path.exists( outputFolder + recNHDR + 'tensStick0.nrrd' ):
                 # diamondModel.computeParamsFromSingleTensorFromDWI( \
                 #                         bvecs=bvecs, bvals=bvals, recSignal=None, \

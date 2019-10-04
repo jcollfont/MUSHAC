@@ -99,8 +99,6 @@ if __name__ == '__main__':
                         help='Use the sum-to-one option (default=1)?')
     args = parser.parse_args()
 
-    if not os.path.exists(args.dir +'/oriented/'):
-        os.mkdir( args.dir +'/oriented/')
 
     for scanModel in ['prisma', 'connectom']:
         for scanType in ['st', 'sa']:
@@ -117,30 +115,78 @@ if __name__ == '__main__':
             sumToOneFlag = args.sumToOneFlag
 
 
-            diamondFolder = baseDir + subj + '/' + scanModel + '/' + scanType + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
-            diamondName = diamondFolder + subj + '_' + scanModel + '_' + scanType + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
+            # diamondFolder = baseDir + subj + '/' + scanModel + '/' + scanType + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
+            # diamondName = diamondFolder + subj + '_' + scanModel + '_' + scanType + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
+
+            # orientedDir = diamondFolder +'/oriented/'
+            # if not os.path.exists( orientedDir ):
+            #     os.mkdir( orientedDir)
+    
+            # dwiFiles = getListofDWIFiles( diamondName )
+            # for fi in dwiFiles:
+            #     call([ '/home/ch137122/bin/miatkOrientImage', '--orient RPI', \
+            #                         diamondFolder + fi, orientedDir +fi ])
 
 
-            # # evaluate FA and MD on image reconstruction
-            # outputDTIFolder = baseDir + '/' + subj + '/' + scanModel + '/' + scanType + '/dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
-            # outputDTIName = outputDTIFolder + subj + '_' + scanModel + '_' + scanType + 'dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
-            
-            # if not os.path.exists(outputDTIFolder):
-            #     os.makedirs(outputDTIFolder)
-            
-            # meanDiff, fracAnisotropy = computeParamsFromSingleTensorFromDWI(diamondName, outputName=outputDTIName)
-            
-            # save to FSL format
-            outputFSLFolder = args.outdir + args.subj+'/'+ scanModel +'/'+ scanType +'/'
-            outputFSLName = args.subj+'_'+ scanModel +'_'+ scanType +'_dwi.nii'
-            
-            if not os.path.exists(outputFSLFolder):
-                os.makedirs(outputFSLFolder)
+            # shutil.copy( diamondName, orientedDir + 'oriented.nhdr' )
 
-            call(['crlDWIConvertNHDRForFSL', '-i', diamondName,\
-                                        '--data', outputFSLFolder + outputFSLName,\
-                                        '--bvecs', outputFSLFolder + 'dwi.bvecs',\
-                                        '--bvals', outputFSLFolder + 'dwi.bvals'])
+
+            # # modify NHDR
+            # call(['crlImageInfo', baseDir + subj + '/' + scanModel + '/' + scanType + '/dwi.nii.gz'])
+            # fo = open(orientedDir +'/targetInfo.txt','w+')
+            # call(['crlImageInfo', baseDir + subj + '/' + scanModel + '/' + scanType + '/dwi.nii.gz'], stdout=fo)
+            # fo.close()
+            # fo = open( orientedDir + '/targetInfo.txt','rb')
+            # infolines = fo.readlines()
+            # fo.close()
+            # print infolines
+            # spacing = np.diag(np.array(np.matrix( infolines[4].split('[')[-1].split(']')[0] )).ravel()[:-1])
+            # M = spacing.dot( np.matrix( infolines[6].split(':')[-1] + ';' + infolines[7] + ';' +infolines[8]  )[:,:-1] )
+
+            # fo = open( diamondName, 'rb')
+            # lines = fo.readlines()
+            # fo.close()
+            # print 'M:'
+            # print M
+
+            # fo = open( orientedDir +  'oriented.nhdr', 'w+')
+            # for ll in lines:
+            #     if ll.find('space directions:') > -1:
+            #         fo.writelines( 'space directions: (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) none\n' %( M[0,0],M[0,1],M[0,2],\
+            #                                                                                                             M[1,0],M[1,1],M[1,2],\
+            #                                                                                                             M[2,0],M[2,1],M[2,2] ))
+            #     elif ll.find('space origin:') > -1:
+            #         fo.writelines( 'space origin: (' + infolines[5].split('[')[-1].split(']')[0][:-3] + ')\n')
+            #     elif ll.find('line skip:') > -1:
+            #         fo.writelines('line skip: 14\n')
+            #     else:
+            #         fo.writelines(ll)
+            # fo.close()
+
+            # # # evaluate FA and MD on image reconstruction
+            # # outputDTIFolder = baseDir + '/' + subj + '/' + scanModel + '/' + scanType + '/dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi/'
+            # # outputDTIName = outputDTIFolder + subj + '_' + scanModel + '_' + scanType + 'dtiResults_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_dwi.nhdr'
+            
+            # # if not os.path.exists(outputDTIFolder):
+            # #     os.makedirs(outputDTIFolder)
+            
+            # # meanDiff, fracAnisotropy = computeParamsFromSingleTensorFromDWI(diamondName, outputName=outputDTIName)
+            
+            # # save to FSL format
+            # outputFSLFolder = args.outdir + args.subj+'/'+ scanModel +'/'+ scanType +'/'
+            # outputFSLName = args.subj+'_'+ scanModel +'_'+ scanType +'_dwi.nii'
+            
+            # if not os.path.exists(outputFSLFolder):
+            #     os.makedirs(outputFSLFolder)
+
+            # if not os.path.exists(outputFSLFolder + outputFSLName):
+            #     call(['crlDWIConvertNHDRForFSL', '-i', orientedDir +  'oriented.nhdr',\
+            #                             '--data', outputFSLFolder + outputFSLName,\
+            #                             '--bvecs', outputFSLFolder + 'dwi.bvecs',\
+            #                             '--bvals', outputFSLFolder + 'dwi.bvals'])
+            
+            # # flip results
+
 
 
             if (scanModel == 'connectom'):
@@ -148,6 +194,53 @@ if __name__ == '__main__':
                 diamondFolder = baseDir + subj + '/' + scanModel + '/' + scanType + '/predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_svGrad_dwi/'
                 diamondName = diamondFolder + subj + '_' + scanModel + '_' + scanType + 'predicted_' + denoised_Tag + '_' + diamond_Tag + '_sumToOne' + sumToOneFlag + '_svGrad_dwi.nhdr'
 
+
+                orientedDir = diamondFolder +'/oriented/'
+                # if not os.path.exists( orientedDir ):
+                #     os.mkdir( orientedDir)
+        
+                # dwiFiles = getListofDWIFiles( diamondName )
+                # for fi in dwiFiles:
+                #     call([ '/home/ch137122/bin/miatkOrientImage', '--orient RPI', \
+                #                         diamondFolder + fi, orientedDir +fi ])
+
+
+                # shutil.copy( diamondName, orientedDir + 'oriented.nhdr' )
+
+
+                # # modify NHDR
+                # call(['crlImageInfo', baseDir + subj + '/' + scanModel + '/' + scanType + '/dwi.nii.gz'])
+                # fo = open(orientedDir +'/targetInfo.txt','w+')
+                # call(['crlImageInfo', baseDir + subj + '/' + scanModel + '/' + scanType + '/dwi.nii.gz'], stdout=fo)
+                # fo.close()
+                # fo = open( orientedDir + '/targetInfo.txt','rb')
+                # infolines = fo.readlines()
+                # fo.close()
+                # print infolines
+                # spacing = np.diag(np.array(np.matrix( infolines[4].split('[')[-1].split(']')[0] )).ravel()[:-1])
+                # M = spacing.dot( np.matrix( infolines[6].split(':')[-1] + ';' + infolines[7] + ';' +infolines[8]  )[:,:-1] )
+
+                # fo = open( diamondName, 'rb')
+                # lines = fo.readlines()
+                # fo.close()
+                # print 'M:'
+                # print M
+
+                # fo = open( orientedDir +  'oriented.nhdr', 'w+')
+                # for ll in lines:
+                #     if ll.find('space directions:') > -1:
+                #         fo.writelines( 'space directions: (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) (%0.6f,%0.6f,%0.6f) none\n' %( M[0,0],M[0,1],M[0,2],\
+                #                                                                                                             M[1,0],M[1,1],M[1,2],\
+                #                                                                                                             M[2,0],M[2,1],M[2,2] ))
+                #     elif ll.find('space origin:') > -1:
+                #         fo.writelines( 'space origin: (' + infolines[5].split('[')[-1].split(']')[0][:-3] + ')\n')
+                #     elif ll.find('line skip:') > -1:
+                #         fo.writelines('line skip: 14\n')
+                #     else:
+                #         fo.writelines(ll)
+                # fo.close()
+
+                
                 # save to FSL format
                 outputFSLFolder = args.outdir + args.subj+'/'+ scanModel +'/'+ scanType +'/'
                 outputFSLName = args.subj+'_'+ scanModel +'_'+ scanType +'_svGrad_dwi.nii'
@@ -155,7 +248,7 @@ if __name__ == '__main__':
                 if not os.path.exists(outputFSLFolder):
                     os.makedirs(outputFSLFolder)
 
-                call(['crlDWIConvertNHDRForFSL', '-i', diamondName,\
+                call(['crlDWIConvertNHDRForFSL', '-i', orientedDir +  'oriented.nhdr',\
                                             '--data', outputFSLFolder + outputFSLName,\
                                             '--bvecs', outputFSLFolder + 'dwi_svGrad.bvecs',\
                                             '--bvals', outputFSLFolder + 'dwi_svGrad.bvals'])
